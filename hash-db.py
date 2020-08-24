@@ -34,7 +34,19 @@ class Db():
                 yield (sort_key, lookup_key, self.db[sort_key])
         return sorted(items(), key=lambda x: x[0], reverse=sortmode == "desc")
 
+    def query_before_than(self, partition_key, prefix, target_sort_key, sortmode):
+        def less_than():
+            for lookup_key, sort_key in self.sort_index.items(prefix=partition_key + ":" + prefix):
+                if sort_key < target_sort_key:
+                    yield (sort_key, lookup_key, self.db[lookup_key])
+        return sorted(less_than(), key=lambda x: x[0], reverse=sortmode == "desc")
 
+    def query_greater_than(self, partition_key, prefix, target_sort_key, sortmode):
+        def less_than():
+            for lookup_key, sort_key in self.sort_index.items(prefix=partition_key + ":" + prefix):
+                if sort_key > target_sort_key:
+                    yield (sort_key, lookup_key, self.db[lookup_key])
+        return sorted(less_than(), key=lambda x: x[0], reverse=sortmode == "desc")
 
 
 
@@ -56,3 +68,9 @@ print(list(db.query_between("user#samsquire", "message#2020-06-01", "message#202
 
 print("find all users who sent messages")
 print(list(db.query_pk_begins("message", "user", sortmode="desc")))
+
+print("before than")
+print(list(db.query_before_than("user#samsquire", "message", "message#2020-07", "asc")))
+
+print("greater than")
+print(list(db.query_greater_than("user#samsquire", "message", "message#2020-07", "asc")))
