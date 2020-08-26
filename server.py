@@ -165,9 +165,6 @@ def query_pk_begins(partition_key_query, query, sort_mode):
 def query_between(partition_key, from_query, to_query, sort_mode):
     def items(partition_key, from_query, to_query):
         for partition_key, sort_key, lookup_key in between_index[partition_key].walk(from_query, to_query):
-
-            print("[{}] [{}] [{}]".format(partition_key, sort_key, lookup_key))
-
             machine_index = hashes["hashes"].get_machine(lookup_key)
             server = servers[machine_index]
 
