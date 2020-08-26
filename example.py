@@ -39,21 +39,26 @@ response = requests.post("http://{}/set/people-100-2020-05-01/friends-2020-06-01
 print(response.text)
 
 print("Query begins asc")
-response = requests.get("http://{}/query_begins/people-100/messages/asc".format(args.server))
+url = "http://{}/query_begins/people-100/messages/asc".format(args.server)
+response = requests.get(url)
+print(url)
 print(response.text)
 
 print("Query begins desc")
 url = "http://{}/query_begins/people-100/messages/desc".format(args.server)
+print(url)
 response = requests.get(url)
 print(response.text)
 
 print("PK and SK begins with")
 url = "http://{}/query_pk_sk_begins/people/messages/desc".format(args.server)
+print(url)
 response = requests.get(url)
 print(response.text)
 
 print("messages between 101 and 105")
 url = "http://{}/query_between/people-100/messages-101/messages-105/desc".format(args.server)
+print(url)
 response = requests.get(url)
 print(response.text)
 

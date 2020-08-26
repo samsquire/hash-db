@@ -144,7 +144,7 @@ def query_begins(partition_key, query, sort_mode):
 
             response = requests.post("http://{}/get/{}".format(server, lookup_key))
             yield (sort_key, lookup_key, response.text)
-    return Response(asstring(sorted(items(), key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/csv")
+    return Response(asstring(sorted(items(), key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/plain")
 
 @app.route("/query_pk_sk_begins/<partition_key_query>/<query>/<sort_mode>", methods=["GET"])
 def query_pk_begins(partition_key_query, query, sort_mode):
@@ -158,7 +158,7 @@ def query_pk_begins(partition_key_query, query, sort_mode):
                 yield (sort_key, lookup_key, response.text)
 
     return Response(asstring(sorted(items(partition_key_query, query),
-        key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/csv")
+        key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/plain")
 
 
 @app.route("/query_between/<partition_key>/<from_query>/<to_query>/<sort_mode>", methods=["GET"])
@@ -172,7 +172,7 @@ def query_between(partition_key, from_query, to_query, sort_mode):
             yield (sort_key, lookup_key, response.text)
 
     return Response(asstring(sorted(items(partition_key, from_query, to_query),
-        key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/csv")
+        key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/plain")
 
 @app.route("/both_between/<from_partition_key>/<to_partition_key>/<from_query>/<to_query>/<sort_mode>", methods=["GET"])
 def both_between(from_partition_key, to_partition_key, from_query, to_query, sort_mode):
@@ -186,4 +186,4 @@ def both_between(from_partition_key, to_partition_key, from_query, to_query, sor
                 yield (sort_key, lookup_key, response.text)
 
     return Response(asstring(sorted(items(from_partition_key, to_partition_key, from_query, to_query),
-        key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/csv")
+        key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/plain")
