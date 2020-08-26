@@ -39,24 +39,27 @@ response = requests.post("http://{}/set/people-100-2020-05-01/friends-2020-06-01
 print(response.text)
 
 print("Query begins asc")
-response = requests.post("http://{}/query_begins/people-100/messages/asc".format(args.server))
+response = requests.get("http://{}/query_begins/people-100/messages/asc".format(args.server))
 print(response.text)
 
 print("Query begins desc")
-response = requests.post("http://{}/query_begins/people-100/messages/desc".format(args.server))
+url = "http://{}/query_begins/people-100/messages/desc".format(args.server)
+response = requests.get(url)
 print(response.text)
 
 print("PK and SK begins with")
-response = requests.get("http://{}/query_pk_sk_begins/people/messages/desc".format(args.server))
+url = "http://{}/query_pk_sk_begins/people/messages/desc".format(args.server)
+response = requests.get(url)
 print(response.text)
 
 print("messages between 101 and 105")
-response = requests.get("http://{}/query_between/people-100/messages-101/messages-105/desc".format(args.server))
+url = "http://{}/query_between/people-100/messages-101/messages-105/desc".format(args.server)
+response = requests.get(url)
 print(response.text)
 
 # both_between/<from_partition_key>/<to_partition_key>/<from_query>/<to_query>/<sort_mode>
 print("both between")
-url = "http://{}/both_between/people-100-2020-05/people-100-2020-07/friends-2019-05-01/friends-2020-06-01/desc".format(args.server)
+url = "http://{}/both_between/people-100-2020-05/people-100-2020-07/friends-2019/friends-2020-06-~~/desc".format(args.server)
 response = requests.get(url)
 print(url)
 print(response.text)

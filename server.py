@@ -25,10 +25,11 @@ class Tree():
             self.left.insert(value, partition_key, lookup_key)
         elif self.value == "":
             self.value = value
+            self.partition_key = partition_key
+            self.lookup_key = lookup_key
         return self
 
     def walk(self, less_than, stop):
-
         if self.left:
             yield from self.left.walk(less_than, stop)
         if less_than <= self.value and self.value <= stop:
@@ -56,9 +57,11 @@ class PartitionTree():
             return self.left.insert(value, partition_tree)
         elif self.value == "":
             self.value = value
+            self.partition_tree = partition_tree
         return self
 
     def walk(self, less_than, stop):
+
         if self.left:
             yield from self.left.walk(less_than, stop)
         if less_than <= self.value and self.value <= stop:
@@ -131,7 +134,7 @@ def asstring(items):
     for item in items:
         yield "{}, {}, \"{}\"\n".format(item[0], item[1], item[2])
 
-@app.route("/query_begins/<partition_key>/<query>/<sort_mode>", methods=["POST"])
+@app.route("/query_begins/<partition_key>/<query>/<sort_mode>", methods=["GET"])
 def query_begins(partition_key, query, sort_mode):
 
     def items():
@@ -162,6 +165,9 @@ def query_pk_begins(partition_key_query, query, sort_mode):
 def query_between(partition_key, from_query, to_query, sort_mode):
     def items(partition_key, from_query, to_query):
         for partition_key, sort_key, lookup_key in between_index[partition_key].walk(from_query, to_query):
+
+            print("[{}] [{}] [{}]".format(partition_key, sort_key, lookup_key))
+
             machine_index = hashes["hashes"].get_machine(lookup_key)
             server = servers[machine_index]
 
