@@ -1,6 +1,6 @@
 # hash-db
 
-You can create a basic database with a hash table and a prefix trie.
+You can create a basic database with a hash table and a prefix trie. You can create a basic distributed database with consistent hashing.
 
 This demonstrates that use case.
 
