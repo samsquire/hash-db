@@ -1,6 +1,6 @@
 # hash-db
 
-You can create a basic database with a hash table and a prefix trie. You can create a basic distributed database with consistent hashing.
+You can create a basic database with a hash table and a prefix trie. See hash-db.py. You can create a basic distributed database with consistent hashing. See client.py and server.py.
 
 This demonstrates that use case.
 
