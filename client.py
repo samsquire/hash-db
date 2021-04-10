@@ -29,6 +29,11 @@ def set(lookup_key):
     data[lookup_key] = request.data.decode('utf-8')
     return make_response('', 202)
 
+@app.route("/clear/<lookup_key>", methods=["POST"])
+def clear(lookup_key):
+    del data[lookup_key]
+    return make_response('', 202)
+
 @app.route("/dump")
 def dump():
     return make_response(json.dumps(data), 202)

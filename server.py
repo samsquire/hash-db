@@ -118,6 +118,7 @@ def bootstrap(port):
             server = servers[old_machine_index]
             response = requests.post("http://{}/get/{}".format(server, lookup_key))
             old_value = response.text
+            requests.post("http://{}/clear/{}".format(server, lookup_key))
             bootstrapped_keys[lookup_key] = old_value
             # upload it back into the cluster onto this machine
         
