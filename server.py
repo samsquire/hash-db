@@ -30,12 +30,12 @@ class Tree():
         return self
 
     def walk(self, less_than, stop):
-        if self.left:
-            yield from self.left.walk(less_than, stop)
         if less_than <= self.value and self.value <= stop:
+            if self.left:
+                yield from self.left.walk(less_than, stop)
             yield self.partition_key, self.value, self.lookup_key
-        if self.right:
-            yield from self.right.walk(less_than, stop)
+            if self.right:
+                yield from self.right.walk(less_than, stop)
 
 class PartitionTree():
     def __init__(self, value, partition_tree):
