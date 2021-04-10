@@ -34,7 +34,7 @@ class Tree():
         if self.left:
             yield from self.left.walk(less_than, stop)
         if less_than <= self.value and self.value <= stop:
-            yield self.value, self.partition_tree
+            yield self.partition_key, self.value, self.lookup_key
         if self.right:
             yield from self.right.walk(less_than, stop)
 
