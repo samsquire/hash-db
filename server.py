@@ -1,4 +1,5 @@
 import time
+import json
 import pygtrie
 from flask import Flask, request, make_response, Response
 from consistent_hashing import ConsistentHash
@@ -102,8 +103,26 @@ Worker().start()
 @app.route("/bootstrap/<port>", methods=["POST"])
 def bootstrap(port):
     servers.append(request.remote_addr + ":" + port)
+    old_hashes = hashes["hashes"]
     hashes["hashes"] = ConsistentHash(num_machines=len(servers), num_replicas=3)
-    return make_response('', 202)
+    new_index = len(servers)  - 1
+    bootstrapped_keys = {}
+    print("Uploading missing data")
+    for lookup_key in indexed.keys():
+        machine_index = hashes["hashes"].get_machine(lookup_key) 
+
+        if machine_index == new_index:
+            print("Found key redistributed to this server") 
+            # get the key from elsewhere in the cluster
+            old_machine_index = old_hashes.get_machine(lookup_key)
+            server = servers[old_machine_index]
+            response = requests.post("http://{}/get/{}".format(server, lookup_key))
+            old_value = response.text
+            bootstrapped_keys[lookup_key] = old_value
+            # upload it back into the cluster onto this machine
+        
+         
+    return make_response(json.dumps(bootstrapped_keys), 202)
 
 @app.route("/set/<partition_key>/<sort_key>", methods=["POST"])
 def set(partition_key, sort_key):
