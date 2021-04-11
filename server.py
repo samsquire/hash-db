@@ -6,70 +6,10 @@ from consistent_hashing import ConsistentHash
 import requests
 from threading import Thread
 app = Flask(__name__)
-
-class Tree():
-    def __init__(self, value, partition_key, lookup_key):
-        self.value = value
-        self.partition_key = partition_key
-        self.lookup_key = lookup_key
-        self.left = None
-        self.right = None
-
-    def insert(self, value, partition_key, lookup_key):
-        if self.left == None and value <= self.value:
-            self.left = Tree(value, partition_key, lookup_key)
-        elif self.right == None and value > self.value:
-            self.right = Tree(value, partition_key, lookup_key)
-        elif value > self.value:
-            self.right.insert(value, partition_key, lookup_key)
-        elif value < self.value:
-            self.left.insert(value, partition_key, lookup_key)
-        elif self.value == "":
-            self.value = value
-            self.partition_key = partition_key
-            self.lookup_key = lookup_key
-        return self
-
-    def walk(self, less_than, stop):
-        if self.left:
-            yield from self.left.walk(less_than, stop)
-        if less_than <= self.value and self.value <= stop:
-            yield self.partition_key, self.value, self.lookup_key
-        if self.right:
-            yield from self.right.walk(less_than, stop)
-
-class PartitionTree():
-    def __init__(self, value, partition_tree):
-        self.value = value
-        self.partition_tree = partition_tree
-        self.left = None
-        self.right = None
-
-    def insert(self, value, partition_tree):
-        if self.left == None and value <= self.value:
-            self.left = PartitionTree(value, partition_tree)
-            return self.left
-        elif self.right == None and value > self.value:
-            self.right = PartitionTree(value, partition_tree)
-            return self.right
-        elif value > self.value:
-            return self.right.insert(value, partition_tree)
-        elif value < self.value:
-            return self.left.insert(value, partition_tree)
-        elif self.value == "":
-            self.value = value
-            self.partition_tree = partition_tree
-        return self
-
-    def walk(self, less_than, stop):
-
-        if self.left:
-            yield from self.left.walk(less_than, stop)
-        if less_than <= self.value and self.value <= stop:
-            yield self.value, self.partition_tree
-        if self.right:
-            yield from self.right.walk(less_than, stop)
-
+from datastructures import Tree, PartitionTree
+from itertools import chain
+from functools import reduce
+from concurrent.futures import ThreadPoolExecutor
 
 hashes = {
     "hashes": None
@@ -129,7 +69,7 @@ def bootstrap(port):
 def set(partition_key, sort_key):
     lookup_key = partition_key + ":" + sort_key
     machine_index = hashes["hashes"].get_machine(lookup_key)
-    response = requests.post("http://{}/set/{}".format(servers[machine_index], lookup_key), data=request.data)
+    response = requests.post("http://{}/set/{}/{}".format(servers[machine_index], partition_key, sort_key), data=request.data)
 
     if lookup_key in indexed:
         return make_response(str(response.status_code), response.status_code)
@@ -154,17 +94,24 @@ def asstring(items):
     for item in items:
         yield "{}, {}, \"{}\"\n".format(item[0], item[1], item[2])
 
+def fromserver(items):
+    for item in items:
+        yield "{}, {}, \"{}\"\n".format(item["sort_key"], item["lookup_key"], item["value"])
+
 @app.route("/query_begins/<partition_key>/<query>/<sort_mode>", methods=["GET"])
 def query_begins(partition_key, query, sort_mode):
 
-    def items():
-        for lookup_key, sort_key in sort_index.iteritems(prefix=partition_key + ":" + query):
-            machine_index = hashes["hashes"].get_machine(lookup_key)
-            server = servers[machine_index]
 
-            response = requests.post("http://{}/get/{}".format(server, lookup_key))
-            yield (sort_key, lookup_key, response.text)
-    return Response(asstring(sorted(items(), key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/plain")
+    def items():
+        def getresults(server):
+            response = requests.post("http://{}/query_begins/{}/{}".format(server, partition_key, query), data=json.dumps({"servers": servers, "hashes": hashes["hashes"].to_dict()}))
+            yield json.loads(response.text)          
+        with ThreadPoolExecutor(max_workers=len(servers)) as executor:
+            future = executor.map(getresults, servers)
+            yield from future
+
+        # send query to all servers
+    return Response(fromserver(sorted(reduce(lambda previous, current: previous + next(current), items(), []), key=lambda x: x["sort_key"], reverse=sort_mode == "desc")), mimetype="text/plain")
 
 @app.route("/query_pk_sk_begins/<partition_key_query>/<query>/<sort_mode>", methods=["GET"])
 def query_pk_begins(partition_key_query, query, sort_mode):

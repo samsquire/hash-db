@@ -4,6 +4,8 @@ hashing.'''
 
 import bisect
 import hashlib
+import json
+
 
 class ConsistentHash:
   '''ConsistentHash(n,r) creates a consistent hash object for a
@@ -29,6 +31,17 @@ class ConsistentHash:
     # Sort the hash tuples based on just the hash values
     hash_tuples.sort(key=lambda x: x[2])
     self.hash_tuples = hash_tuples
+
+  def from_dict(data):
+    num_machines = data["num_machines"] 
+    num_replicas = data["num_replicas"] 
+    return ConsistentHash(num_machines, num_replicas)
+
+  def to_dict(self):
+      return {
+            "num_machines": self.num_machines,
+            "num_replicas": self.num_replicas
+              }
 
   def get_machine(self,key):
     '''Returns the number of the machine which key gets sent to.'''
