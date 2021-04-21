@@ -70,10 +70,34 @@ response = requests.get(url)
 print(url)
 print(response.text)
 
-print("insert sql")
+print("1 insert sql")
 url = "http://{}/sql".format(args.server)
 response = requests.post(url, data=json.dumps({
     "sql": "insert into people (people_name, age) values ('Ted', 29)" 
+    }))
+print(url)
+print(response.text)
+
+print("2 insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into people (people_name, age) values ('Fred', 45)" 
+    }))
+print(url)
+print(response.text)
+
+print("3 insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into people (people_name, age) values ('Simon', 29)" 
+    }))
+print(url)
+print(response.text)
+
+print("4 insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into people (people_name, age) values ('Sam', 29)" 
     }))
 print(url)
 print(response.text)

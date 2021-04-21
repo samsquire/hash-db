@@ -186,7 +186,7 @@ class SQLExecutor:
     def execute(self):
         if self.parser["fts_clause"]:
             # full text search
-            table_datas, field_reductions = self.get_tables([["{}.".format(self.parser.table_name)]])
+            table_datas, field_reductions = self.get_tables([["{}.".format(self.parser["table_name"])]])
             have_printed_header = False
             header = []
             output_lines = []
@@ -194,7 +194,7 @@ class SQLExecutor:
             for result in self.process_wheres(field_reductions[0][0]):
                 print("item: " + str(result))
                 output_lines = []
-                for field in self.parser.select_clause:
+                for field in self.parser["select_clause"]:
 
                     if field == "*":
                         for key, value in result.items():
@@ -207,6 +207,7 @@ class SQLExecutor:
                 outputs.append(output_lines)
             print(header)
             print(outputs)
+            yield output_lines
             
         elif self.parser["group_by"]:
             print("Group by statement")
@@ -301,10 +302,19 @@ class SQLExecutor:
                     continue
                 and_or.append(mode)
                 row_filter = "FTS.{}.{}.{}".format(table, field, token)
-                table_data = list(map(lambda x: {"id": x["value"]}, filter(lambda x: x["key"].startswith(row_filter), items)))
+                # table_data = list(map(lambda x: {"id": x["value"]}, filter(lambda x: x["key"].startswith(row_filter), items)))
+
+                try:
+                    table_data = []
+                    for sort_key, lookup_key in sql_index.iteritems(prefix=row_filter):
+                        print(sort_key)
+                        print(lookup_key)
+                        table_data.append({"id": data[lookup_key]}) 
+                except:
+                    table_data = []
                 
-                reductions.append([input_data, table_data])
-                table_datas.append([(input_data, "id"), (table_data, "id")])
+                reductions.append([table_data, input_data])
+                table_datas.append([(table_data, "id"), (input_data, "id")])
         
         for restriction, value in where_clause:
             print("Running hash join for where clause value " + str(value))

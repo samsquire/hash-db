@@ -443,28 +443,15 @@ class SQLExecutor:
     
     def execute(self):
         if self.parser.fts_clause:
-            # full text search
-            table_datas, field_reductions = self.get_tables([["{}.".format(self.parser.table_name)]])
-            have_printed_header = False
-            header = []
-            output_lines = []
-            outputs = []
-            for result in self.process_wheres(field_reductions[0][0]):
-                print("item: " + str(result))
-                output_lines = []
-                for field in self.parser.select_clause:
-
-                    if field == "*":
-                        for key, value in result.items():
-                            if not have_printed_header:
-                                header.append(key)
-                            output_lines.append(value)
-                    else:
-                        output_lines.append(result[field])
-                have_printed_header = True
-                outputs.append(output_lines)
-            print(header)
-            print(outputs)
+            entries = []
+            for server in servers:
+                subset = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
+                    "parser": self.parser.__dict__
+                    })).text)
+                if subset:
+                    entries = entries + subset
+            print("From data node")
+            print(entries)
              
             
         elif self.parser.insert_values:
