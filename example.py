@@ -1,4 +1,5 @@
 import requests
+import json
 
 from argparse import ArgumentParser
 parser = ArgumentParser()
@@ -66,5 +67,21 @@ print(response.text)
 print("both between")
 url = "http://{}/both_between/people-100-2020-05/people-100-2020-07/friends-2019/friends-2020-06-~~/desc".format(args.server)
 response = requests.get(url)
+print(url)
+print(response.text)
+
+print("insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into people (people_name, age) values ('Ted', 29)" 
+    }))
+print(url)
+print(response.text)
+
+print("insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "select * from people where people.age = 29" 
+    }))
 print(url)
 print(response.text)

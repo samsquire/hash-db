@@ -54,7 +54,7 @@ class ConsistentHash:
 
 def my_hash(key):
   '''my_hash(key) returns a hash in the range [0,1).'''
-  return (int(hashlib.sha1(key.encode('utf-8')).hexdigest(),16) % 1000000)/1000000.0
+  return (int(hashlib.md5(key.encode('utf-8')).hexdigest(),16) % 1000000)/1000000.0
 
 def main():
   ch = ConsistentHash(2,3)
