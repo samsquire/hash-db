@@ -16,6 +16,7 @@ from operator import itemgetter
 import re
 from collections import defaultdict
 from functools import reduce
+import itertools
 
 hashes = {
     "hashes": None
@@ -57,7 +58,6 @@ def bootstrap(port):
     print("Uploading missing data")
     for lookup_key in indexed.keys():
         partition_key, sort_key = lookup_key.split(":")
-        print(partition_key)
         machine_index = hashes["hashes"].get_machine(partition_key) 
 
         if machine_index == new_index:
@@ -437,23 +437,44 @@ class SQLExecutor:
     
     def hash_join(self, records, index, pair, table_datas, process_records=True):
         ids_for_key = defaultdict(list)
-        if process_records and len(records) > 0:
-            scan = records
-        else:
-            scan = pair[0]
+        lhs = 0
+
+        scan = None
         
-        for item in scan:
-            field = table_datas[index][0][1]
-            
+        for innerindex, entry in enumerate(table_datas[index]):
+            collection, fieldname, size = entry
+            if size == "smaller":
+                lhs = innerindex
+                scan = collection
+                break 
+
+                
+        for item in itertools.chain(scan, records):
+            field = table_datas[index][lhs][1]
+            if field not in item:
+                continue
             left_field = item[field]
             ids_for_key[left_field] = item
         
-        for item in pair[1]:
-            
-            if table_datas[index][1][1] in item and item[table_datas[index][1][1]] in ids_for_key:
-                item_value = item[table_datas[index][1][1]]
-                print("Found match: {} in ids_for_key".format(item_value))
-                yield {**ids_for_key[item[table_datas[index][1][1]]], **item}
+        test = None
+        rhs = 1
+        for rhsindex, entry in enumerate(table_datas[index]):
+            collection, fieldname, size = entry
+            if collection is not scan:
+                rhs = rhsindex
+                test = collection
+                break
+
+        try:
+            for item in test:
+                
+                if table_datas[index][rhs][1] in item and item[table_datas[index][rhs][1]] in ids_for_key:
+                    item_value = item[table_datas[index][rhs][1]]
+                    print("Found match: {} in ids_for_key".format(item_value))
+                    yield {**ids_for_key[item[table_datas[index][rhs][1]]], **item}
+
+        except KeyError:
+            pass
 
     def get_table_size(self, table_name):
         if table_name not in table_counts:
@@ -583,20 +604,47 @@ class SQLExecutor:
                 print(output_line)
                 
         elif self.parser.join_clause:
-            table_datas, field_reductions = self.get_tables(self.parser.join_clause)
 
-            records = []
-            for index, pair in enumerate(field_reductions):
-                records = list(self.hash_join(records, index, pair, table_datas))
-            
+
+            def getresults(server):
+                response = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
+                    "parser": self.parser.__dict__
+                    })).text)
+
+                yield response          
+
+            with ThreadPoolExecutor(max_workers=len(servers)) as executor:
+                future = executor.map(getresults, servers)
+             
+            materialized = []
+            for server in future:
+                for index, data_item in enumerate(server): 
+                    for size, field_reduction in enumerate(data_item):
+                         
+                        if len(materialized) <= size:
+                            entry = []
+                            materialized.append(entry)
+                        entry = materialized[size]
+                        for pairindex, pair in enumerate(field_reduction):
+                            if len(entry) <= pairindex:
+                                entry.append((pair["data"], pair["field"], "smaller"))
+                            else: 
+                                entry[pairindex] = (entry[pairindex][0] + pair["data"], pair["field"], "smaller")
+
+            pprint(materialized) 
+            records = [] 
+            for index, pair in enumerate(materialized):
+                records = list(self.hash_join(records, index, pair, materialized))
+                
+
             records = self.process_wheres(records)
             print("records from join" + str(records))
             
             for record in records:
                 output_line = []
-                for clause in parser.select_clause:
+                for clause in self.parser.select_clause:
                     table, field = clause.split(".")
-                    output_line.append(record[field])
+                    output_line.append(record.get(field, "MISSING"))
                 print(output_line)
                 
         elif self.parser.select_clause:

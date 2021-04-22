@@ -134,3 +134,41 @@ response = requests.post(url, data=json.dumps({
     }))
 print(url)
 print(response.text)
+
+print("insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into items (search, people) values ('Cat', 3)" 
+    }))
+print(url)
+print(response.text)
+
+
+print("insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into products (name, price) values ('Spanner', 300)" 
+    }))
+print(url)
+print(response.text)
+
+print("insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into items (search, people) values ('Spanner', 3)" 
+    }))
+print(url)
+print(response.text)
+
+print("query sql")
+statement = """select products.price, people.people_name,
+    items.search from items
+    inner join people on people.id = items.people
+    inner join products on items.search = products.name
+    """
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": statement 
+    }))
+print(url)
+print(response.text)
