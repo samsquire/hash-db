@@ -8,6 +8,7 @@ import pygtrie
 from consistent_hashing import ConsistentHash
 from pprint import pprint
 from collections import defaultdict
+from operator import itemgetter
 
 parser = ArgumentParser()
 parser.add_argument("--server")
@@ -164,7 +165,10 @@ class SQLExecutor:
             scan = records
         else:
             scan = pair[0]
-        
+                
+        print(scan)
+        print(pair)
+
         for item in scan:
             field = table_datas[index][0][1]
             
@@ -213,15 +217,16 @@ class SQLExecutor:
                         sort_key = item
                         lookup_key = partition_key + ":" + sort_key
                         try:
+                            del indexed[lookup_key]
                             del sort_index[lookup_key]
                             del sort_index[sort_key][partition_key]
                             del sort_index[sort_key]
                             # if partition_key not in between_index:
                             #     between_index[partition_key] = Tree("", None, None)
                             between_index[partition_key].delete(sort_key)
-                            if partition_key not in partition_trees:
-                                partition_tree = both_between_index.insert(partition_key, Tree("", None, None))
-                                partition_trees[partition_key] = partition_tree
+                            # if partition_key not in partition_trees:
+                            #    partition_tree = both_between_index.insert(partition_key, Tree("", None, None))
+                            #    partition_trees[partition_key] = partition_tree
                             # between_index[partition_key].insert(sort_key, partition_key, partition_key + ":" + sort_key)
                             # partition_trees[partition_key].partition_tree.insert(sort_key, partition_key, partition_key + ":" + sort_key)
 
@@ -229,6 +234,60 @@ class SQLExecutor:
                             del data[lookup_key]
                         except KeyError:
                             pass
+
+                    # now update the data
+                    items = []
+                    insert_table = self.parser["update_table"]
+                    field = updated_field
+                    
+                    if isinstance(new_value, str): 
+                        tokens = new_value.replace(",", "").split(" ")
+                        for token in tokens:
+                            new_key = "FTS.{}.{}.{}.{}".format(insert_table, field, token, result["id"])
+                            items.append({
+                                "key": new_key,
+                                "value": result["id"]
+                            })
+                    
+                    
+                    new_key = "R.{}.{}.{}".format(insert_table, result["id"], field)
+                    items.append({
+                        "key": new_key,
+                        "value": new_value
+                    })
+                    new_key = "S.{}.{}.{}.{}".format(insert_table, field, new_value, result["id"])
+                    items.append({
+                        "key": new_key,
+                        "value": result["id"]
+                    })
+                    new_key = "C.{}.{}.{}".format(insert_table, field, result["id"])
+                    items.append({
+                        "key": new_key,
+                        "value": new_value
+                    })
+
+                    items.sort(key=itemgetter('key'))
+
+
+                    for item in items:
+                        sort_key = item["key"]
+                        lookup_key = partition_key + ":" + sort_key
+                        data[lookup_key] = item["value"]
+
+                        indexed[lookup_key] = True
+                        sort_index[partition_key + ":" + sort_key] = sort_key
+                        if sort_key not in sort_index:
+                            sort_index[sort_key] = pygtrie.CharTrie()
+                        sort_index[sort_key][partition_key] = partition_key + ":" + sort_key
+                        if partition_key not in between_index:
+                            between_index[partition_key] = Tree("", None, None)
+                        if partition_key not in partition_trees:
+                            partition_tree = both_between_index.insert(partition_key, Tree("", None, None))
+                            partition_trees[partition_key] = partition_tree
+                        between_index[partition_key].insert(sort_key, partition_key, partition_key + ":" + sort_key)
+                        partition_trees[partition_key].partition_tree.insert(sort_key, partition_key, partition_key + ":" + sort_key)
+                        sql_index[sort_key] = lookup_key
+
                 
             
         elif self.parser["fts_clause"]:
@@ -303,7 +362,6 @@ class SQLExecutor:
             have_printed_header = False
             header = []
             output_lines = []
-            print(field_reductions[0][0])
             for result in self.process_wheres(field_reductions[0][0]):
                 print("item: " + str(result))
                 for field in self.parser["select_clause"]:
@@ -375,7 +433,7 @@ class SQLExecutor:
                     print(sort_key)
                     print(lookup_key)
                     table_data.append({"id": data[lookup_key]}) 
-            except:
+            except KeyError:
                 table_data = []
             reductions.append([table_data, input_data])
             table_datas.append([(table_data, "id"), (input_data, "id")])

@@ -126,3 +126,11 @@ response = requests.post(url, data=json.dumps({
     }))
 print(url)
 print(response.text)
+
+print("query sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "select * from people where people.age = 31" 
+    }))
+print(url)
+print(response.text)
