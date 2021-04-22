@@ -32,7 +32,7 @@ http://localhost:1005/query_between/people-100/messages-101/messages-105/desc
 
 http://localhost:1005/both_between/people-100-2020-05/people-100-2020-07/friends-2019/friends-2020-06-~~/desc
 
-## SQL
+## SQL Interface
 
 ```
 curl -H"Content-type: application/json" -X POST http://localhost:1005/sql --data-ascii '{"sql": "select * from people"}'
