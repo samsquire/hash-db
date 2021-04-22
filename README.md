@@ -8,6 +8,10 @@ This demonstrates that use case.
 
 [Also see the Java version here](https://github.com/samsquire/hash-db-java)
 
+# Running
+
+Run ./start-all.sh to start server with 3 data nodes.
+
 # API standard
 
 ## Sort key begins with value
@@ -25,3 +29,19 @@ http://localhost:1005/query_between/people-100/messages-101/messages-105/desc
 ## Partition key and sort key between values
 
 http://localhost:1005/both_between/people-100-2020-05/people-100-2020-07/friends-2019/friends-2020-06-~~/desc
+
+## SQL
+
+```
+curl -H"Content-type: application/json" -X POST http://localhost:1005/sql --data-ascii '{"sql": "select * from people"}'
+```
+
+```
+print("4 insert sql")                                                                                                  |            elif last_id == identifier:                                                                               
+url = "http://{}/sql".format(args.server)                                                                              |                table_metadata["current_record"][field_name] = data[lookup_key]                                       
+response = requests.post(url, data=json.dumps({                                                                        |                                                                                                                      
+    "sql": "insert into people (people_name, age) values ('Sam', 29)"                                                  |                                                                                                                      
+    }))                                                                                                                |        field_reductions = []                                                                                         
+print(url)                                                                                                             |        for index, pair in enumerate(table_datas):                                                                    
+print(response.text) 
+```
