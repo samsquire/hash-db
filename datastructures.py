@@ -34,7 +34,7 @@ class Tree():
         next_value = self
         while True:
             if value < next_value.value:  
-                if next_value.left.value == value:
+                if next_value and next_value.left.value == value:
                     next_value.left = None
                     print("Found item to delete")
                     break
@@ -42,7 +42,7 @@ class Tree():
                     next_value = next_value.left
                 
             if value > next_value.value:  
-                if next_value.right.value == value:
+                if next_value.right and next_value.right.value == value:
                     next_value.right = None
                     print("Found item to delete")
                     break

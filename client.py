@@ -86,6 +86,8 @@ def set(partition_key, sort_key):
 @app.route("/clear/<lookup_key>", methods=["POST"])
 def clear(lookup_key):
     try:
+        partition_key, sort_key = lookup_key.split(":")
+        del sql_index[sort_key] 
         del data[lookup_key]
     except KeyError:
         pass
@@ -120,6 +122,48 @@ def query_begins(partition_key, query):
         except:
             print("No keys match on this server")
     return Response(json.dumps(list(items())), mimetype="text/plain")
+
+
+def deindex(partition_key, table, identifier, field_name, value):
+
+    items_to_be_deleted = [ 
+            ]
+
+    new_key = "R.{}.{}.{}".format(table, identifier, field_name)
+    items_to_be_deleted.append(new_key)
+    new_key = "S.{}.{}.{}.{}".format(table, field_name, value, identifier)
+    items_to_be_deleted.append(new_key)
+    new_key = "C.{}.{}.{}".format(table, field_name, identifier)
+    items_to_be_deleted.append(new_key)
+
+    if isinstance(value, str):
+        tokens = value.split(" ")
+        if tokens:
+            for token in tokens:
+                new_key = "FTS.{}.{}.{}.{}".format(table, field_name, token, identifier)
+                items_to_be_deleted.append(new_key)
+
+    for item in items_to_be_deleted:
+        sort_key = item
+        lookup_key = partition_key + ":" + sort_key
+        try:
+            del indexed[lookup_key]
+            del sort_index[lookup_key]
+            del sort_index[sort_key][partition_key]
+            del sort_index[sort_key]
+            # if partition_key not in between_index:
+            #     between_index[partition_key] = Tree("", None, None)
+            between_index[partition_key].delete(sort_key)
+            # if partition_key not in partition_trees:
+            #    partition_tree = both_between_index.insert(partition_key, Tree("", None, None))
+            #    partition_trees[partition_key] = partition_tree
+            # between_index[partition_key].insert(sort_key, partition_key, partition_key + ":" + sort_key)
+            # partition_trees[partition_key].partition_tree.insert(sort_key, partition_key, partition_key + ":" + sort_key)
+
+            del sql_index[sort_key]
+            del data[lookup_key]
+        except KeyError:
+            pass
 
 class SQLExecutor:
     def __init__(self, parser, materialized):
@@ -178,7 +222,7 @@ class SQLExecutor:
             pair_items = []
             for item in pair:
                 table, join_field, size = item
-                field_reduction = list(table_reductions(table, defaultdict(dict)))
+                field_reduction = table_reductions(table, defaultdict(dict))
                 pair_items.append(field_reduction)
             field_reductions.append(pair_items)
         
@@ -240,44 +284,8 @@ class SQLExecutor:
                     updated_to, new_value = update
                     updated_field = updated_to.split(".")[1]
                     partition_key = "{}.{}".format(self.parser["update_table"], result["id"])
-                    items_to_be_deleted = [ 
-                            ]
 
-                    new_key = "R.{}.{}.{}".format(self.parser["update_table"], result["id"], updated_field)
-                    items_to_be_deleted.append(new_key)
-                    new_key = "S.{}.{}.{}.{}".format(self.parser["update_table"], updated_field, result[updated_field], result["id"])
-                    items_to_be_deleted.append(new_key)
-                    new_key = "C.{}.{}.{}".format(self.parser["update_table"], updated_field, result["id"])
-                    items_to_be_deleted.append(new_key)
-
-                    if isinstance(result[updated_field], str):
-                        tokens = result[updated_field]
-                        print("Need to delete FTS indexes")
-                        for token in tokens:
-                            new_key = "FTS.{}.{}.{}.{}".format(self.parser["update_table"], updated_field, token, result["id"])
-                            items_to_be_deleted.append(new_key)
-
-                    for item in items_to_be_deleted:
-                        sort_key = item
-                        lookup_key = partition_key + ":" + sort_key
-                        try:
-                            del indexed[lookup_key]
-                            del sort_index[lookup_key]
-                            del sort_index[sort_key][partition_key]
-                            del sort_index[sort_key]
-                            # if partition_key not in between_index:
-                            #     between_index[partition_key] = Tree("", None, None)
-                            between_index[partition_key].delete(sort_key)
-                            # if partition_key not in partition_trees:
-                            #    partition_tree = both_between_index.insert(partition_key, Tree("", None, None))
-                            #    partition_trees[partition_key] = partition_tree
-                            # between_index[partition_key].insert(sort_key, partition_key, partition_key + ":" + sort_key)
-                            # partition_trees[partition_key].partition_tree.insert(sort_key, partition_key, partition_key + ":" + sort_key)
-
-                            del sql_index[sort_key]
-                            del data[lookup_key]
-                        except KeyError:
-                            pass
+                    deindex(partition_key, self.parser["update_table"], result["id"], updated_field, result[updated_field])
 
                     # now update the data
                     items = []
