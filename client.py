@@ -112,7 +112,7 @@ class SQLExecutor:
                 table, field = selector.split(".")
                 row_filter = "R.{}".format(table)
                 try:
-                    table_data = list(sql_index.iteritems(prefix=row_filter))
+                    table_data = sql_index.iteritems(prefix=row_filter)
                 except:
                     table_data = []
                 pair_data.append((table_data, field))
@@ -126,6 +126,7 @@ class SQLExecutor:
                 yield metadata["current_record"]
             except:
                 yield []
+                yield metadata["current_record"]
 
         def reduce_table(table_metadata, record):
             sort_key, lookup_key = record
@@ -152,7 +153,7 @@ class SQLExecutor:
             pair_items = []
             for item in pair:
                 table, join_field = item
-                field_reduction = list(table_reductions(table, defaultdict(dict)))
+                field_reduction = table_reductions(table, defaultdict(dict))
                 pair_items.append(field_reduction)
             field_reductions.append(pair_items)
         return table_datas, field_reductions
@@ -184,7 +185,53 @@ class SQLExecutor:
          
     
     def execute(self):
-        if self.parser["fts_clause"]:
+        if self.parser["updates"]:
+            table_datas, field_reductions = self.get_tables([["{}.".format(self.parser["update_table"])]])
+            for result in self.process_wheres(field_reductions[0][0]):
+                for update in self.parser["updates"]:
+                    updated_to, new_value = update
+                    updated_field = updated_to.split(".")[1]
+                    partition_key = "{}.{}".format(self.parser["update_table"], result["id"])
+                    items_to_be_deleted = [ 
+                            ]
+
+                    new_key = "R.{}.{}.{}".format(self.parser["update_table"], result["id"], updated_field)
+                    items_to_be_deleted.append(new_key)
+                    new_key = "S.{}.{}.{}.{}".format(self.parser["update_table"], updated_field, result[updated_field], result["id"])
+                    items_to_be_deleted.append(new_key)
+                    new_key = "C.{}.{}.{}".format(self.parser["update_table"], updated_field, result["id"])
+                    items_to_be_deleted.append(new_key)
+
+                    if isinstance(result[updated_field], str):
+                        tokens = result[updated_field]
+                        print("Need to delete FTS indexes")
+                        for token in tokens:
+                            new_key = "FTS.{}.{}.{}.{}".format(self.parser["update_table"], updated_field, token, result["id"])
+                            items_to_be_deleted.append(new_key)
+
+                    for item in items_to_be_deleted:
+                        sort_key = item
+                        lookup_key = partition_key + ":" + sort_key
+                        try:
+                            del sort_index[lookup_key]
+                            del sort_index[sort_key][partition_key]
+                            del sort_index[sort_key]
+                            # if partition_key not in between_index:
+                            #     between_index[partition_key] = Tree("", None, None)
+                            between_index[partition_key].delete(sort_key)
+                            if partition_key not in partition_trees:
+                                partition_tree = both_between_index.insert(partition_key, Tree("", None, None))
+                                partition_trees[partition_key] = partition_tree
+                            # between_index[partition_key].insert(sort_key, partition_key, partition_key + ":" + sort_key)
+                            # partition_trees[partition_key].partition_tree.insert(sort_key, partition_key, partition_key + ":" + sort_key)
+
+                            del sql_index[sort_key]
+                            del data[lookup_key]
+                        except KeyError:
+                            pass
+                
+            
+        elif self.parser["fts_clause"]:
             # full text search
             table_datas, field_reductions = self.get_tables([["{}.".format(self.parser["table_name"])]])
             have_printed_header = False
@@ -239,7 +286,7 @@ class SQLExecutor:
 
             records = []
             for index, pair in enumerate(field_reductions):
-                records = list(self.hash_join(records, index, pair, table_datas))
+                records = self.hash_join(records, index, pair, table_datas)
             
             records = self.process_wheres(records)
             print("records from join" + str(records))
@@ -280,7 +327,7 @@ class SQLExecutor:
     def process_wheres(self, field_reductions):
         where_clause = self.parser["where_clause"]
         fts_clause = self.parser["fts_clause"]
-        input_data = list(field_reductions)
+        input_data = field_reductions
         records = []
         if not where_clause and not fts_clause:
             return field_reductions

@@ -176,7 +176,8 @@ class Parser():
         self.insert_values = []
         self.where_clause = []
         self.fts_clause = []
-        
+        self.update_table = None 
+        self.updates = []
 
     def getchar(self):
         
@@ -363,6 +364,25 @@ class Parser():
         if token == "insert":
             into = self.gettok()
             self.parse_insert()
+        if token == "update":
+            self.parse_update()
+
+    def parse_setter(self):
+        field = self.gettok()         
+        operator = self.gettok()
+        value = self.gettok()
+        token = self.gettok()
+        self.updates.append([field, value]) 
+        if token == "set":
+            self.parse_setter()
+        if token == "where": 
+            self.parse_where()
+
+    def parse_update(self):
+        self.update_table = self.gettok() 
+        token = self.gettok()
+        if token == "set": 
+            self.parse_setter()
        
 
 class SQLExecutor:
@@ -442,7 +462,18 @@ class SQLExecutor:
          
     
     def execute(self):
-        if self.parser.fts_clause:
+        if self.parser.update_table:
+            entries = []
+            for server in servers:
+                subset = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
+                    "parser": self.parser.__dict__
+                    })).text)
+                if subset:
+                    entries = entries + subset
+            print("From data node")
+            print(entries)
+            
+        elif self.parser.fts_clause:
             entries = []
             for server in servers:
                 subset = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
