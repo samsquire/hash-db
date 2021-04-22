@@ -1,6 +1,6 @@
 # hash-db
 
-You can create a basic database with a hash table and a prefix trie. See hash-db.py. You can create a basic distributed database with consistent hashing. See client.py and server.py. Data is rebalanced onto nodes as new servers are added.
+You can create a basic database with a hash table and a prefix trie. See hash-db.py. You can create a basic distributed database with consistent hashing. See client.py and server.py. Data is rebalanced onto nodes as new servers are added. SQL is parsed on the server and work distributed to data nodes. [Please see this blog post](https://elaeis.cloud-angle.com/?p=183).
 
 This demonstrates that use case.
 
