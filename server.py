@@ -631,9 +631,23 @@ class SQLExecutor:
                             else: 
                                 entry[pairindex] = (entry[pairindex][0] + pair["data"], pair["field"], "smaller")
 
+            def correct_sizing(table_datas_item):
+                left = "smaller"
+                right = "smaller"
+                if len(table_datas_item[0]) > len(table_datas_item[1]):
+                    left = "bigger"
+                    right = "smaller"
+                if len(table_datas_item[0]) < len(table_datas_item[1]):
+                    left = "smaller"
+                    right = "bigger"
+
+                return [(table_datas_item[0], table_datas_item[0], left),
+                        (table_datas_item[1], table_datas_item[1], right)]
+                    
+
             pprint(materialized) 
             records = [] 
-            for index, pair in enumerate(materialized):
+            for index, pair in enumerate(map(correct_sizing, materialized)):
                 records = list(self.hash_join(records, index, pair, materialized))
                 
 
