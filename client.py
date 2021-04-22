@@ -119,7 +119,7 @@ class SQLExecutor:
                 table, field = selector.split(".")
                 row_filter = "R.{}".format(table)
                 try:
-                    table_data = list(sql_index.iteritems(prefix=row_filter))
+                    table_data = sql_index.iteritems(prefix=row_filter)
                 except:
                     table_data = []
                 pair_data.append((table_data, field, "smaller"))
@@ -163,7 +163,7 @@ class SQLExecutor:
             pair_items = []
             for item in pair:
                 table, join_field, size = item
-                field_reduction = list(table_reductions(table, defaultdict(dict)))
+                field_reduction = table_reductions(table, defaultdict(dict))
                 pair_items.append(field_reduction)
             field_reductions.append(pair_items)
         
