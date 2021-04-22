@@ -8,6 +8,8 @@ This demonstrates that use case.
 
 [Also see the Java version here](https://github.com/samsquire/hash-db-java)
 
+This project uses Google's pygtrie and [Michaeln Nielsen's consistent hashing code](michaelnielsen.org/blog/consistent-hashing/) 
+
 # Running
 
 Run ./start-all.sh to start server with 3 data nodes.
