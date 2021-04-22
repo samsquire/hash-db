@@ -32,8 +32,23 @@ sql_index = pygtrie.CharTrie()
 response = requests.post("http://{}/bootstrap/{}".format(args.server, args.port))
 print(response.text)
 bootstrapped_keys = json.loads(response.text)
-for key, value in bootstrapped_keys.items():
-    data[key] = value
+for lookup_key, value in bootstrapped_keys.items():
+    data[lookup_key] = value
+    indexed[lookup_key] = True
+    partition_key, sort_key = lookup_key.split(":")
+    sort_index[partition_key + ":" + sort_key] = sort_key
+    if sort_key not in sort_index:
+        sort_index[sort_key] = pygtrie.CharTrie()
+    sort_index[sort_key][partition_key] = partition_key + ":" + sort_key
+    if partition_key not in between_index:
+        between_index[partition_key] = Tree("", None, None)
+    if partition_key not in partition_trees:
+        partition_tree = both_between_index.insert(partition_key, Tree("", None, None))
+        partition_trees[partition_key] = partition_tree
+    between_index[partition_key].insert(sort_key, partition_key, partition_key + ":" + sort_key)
+    partition_trees[partition_key].partition_tree.insert(sort_key, partition_key, partition_key + ":" + sort_key)
+
+    sql_index[sort_key] = lookup_key
 
 app = Flask(__name__)
 
@@ -134,11 +149,11 @@ class SQLExecutor:
                 if metadata["current_record"] != {}:
                     yield metadata["current_record"]
             except:
-                yield []
                 if metadata["current_record"] != {}:
                     yield metadata["current_record"]
 
         def reduce_table(table_metadata, record):
+            print(record)
             sort_key, lookup_key = record
             components = sort_key.split(".")
             identifier = components[2]
@@ -163,7 +178,7 @@ class SQLExecutor:
             pair_items = []
             for item in pair:
                 table, join_field, size = item
-                field_reduction = table_reductions(table, defaultdict(dict))
+                field_reduction = list(table_reductions(table, defaultdict(dict)))
                 pair_items.append(field_reduction)
             field_reductions.append(pair_items)
         
@@ -327,7 +342,6 @@ class SQLExecutor:
             output_lines = []
             outputs = []
             for result in self.process_wheres(field_reductions[0][0]):
-                print("item: " + str(result))
                 output_lines = []
                 for field in self.parser["select_clause"]:
 
@@ -342,7 +356,7 @@ class SQLExecutor:
                 outputs.append(output_lines)
             print(header)
             print(outputs)
-            yield output_lines
+            yield from output_lines
             
         elif self.parser["group_by"]:
             print("Group by statement")
@@ -388,22 +402,25 @@ class SQLExecutor:
             have_printed_header = False
             header = []
             output_lines = []
+            print(field_reductions)
             for result in self.process_wheres(field_reductions[0][0]):
-                print("item: " + str(result))
+                output_lines = []
                 for field in self.parser["select_clause"]:
-
+                    output_line = []
+                    print(result)
                     if field == "*":
                         for key, value in result.items():
+                            
                             if not have_printed_header:
                                 header.append(key)
-                            output_lines.append(value)
+                            output_line.append(value)
                     else:
-                        output_lines.append(result[field])
+                        output_line.append(result[field])
+                    output_lines.append(output_line)
+                yield from output_lines
                 have_printed_header = True
             print(header)
             print(output_lines)
-            yield output_lines
-
 
 
 

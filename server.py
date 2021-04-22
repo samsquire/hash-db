@@ -662,13 +662,11 @@ class SQLExecutor:
                 print(output_line)
                 
         elif self.parser.select_clause:
-            entries = []
             for server in servers:
                 subset = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
                     "parser": self.parser.__dict__
                     })).text)
-                entries = entries + subset
-            print(entries)
+                yield from subset
 
 
 
@@ -734,5 +732,7 @@ def sql():
     statement = json.loads(request.data)["sql"]
     parser = Parser()
     parser.parse(statement)
-    SQLExecutor(parser).execute()
-    return Response("")
+    def items():
+        yield from SQLExecutor(parser).execute()
+     
+    return Response(json.dumps(list(items())))
