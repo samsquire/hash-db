@@ -178,6 +178,8 @@ class Parser():
         self.fts_clause = []
         self.update_table = None 
         self.updates = []
+        self.create_join_clause = []
+        self.create_join_source = None
 
     def getchar(self):
         
@@ -289,7 +291,7 @@ class Parser():
             
         if operation == "inner":
             join = self.gettok()
-            self.join_table = self.gettok()
+            self.join_table = self.gettok() # never actually used
             on = self.gettok()
             join_target_1 = self.gettok()
             
@@ -356,6 +358,25 @@ class Parser():
         if openbracket == "openbracket":
             self.parse_insert_fields()
     
+    def parse_create_join(self):
+       token = self.gettok() 
+
+       if token == "inner":
+           join = self.gettok()
+           self.create_join_source = self.gettok() # never actually used
+           on = self.gettok()
+           join_target_1 = self.gettok()
+           
+           self.gettok()
+           join_target_2 = self.gettok()
+           self.create_join_clause.append([join_target_1, join_target_2])
+           self.parse_create_join()
+
+    def parse_create(self):
+        token = self.gettok() 
+        if token == "join":
+            self.parse_create_join()
+
     def parse(self, statement):
         self.statement = statement
         token = self.gettok()
@@ -366,6 +387,8 @@ class Parser():
             self.parse_insert()
         if token == "update":
             self.parse_update()
+        if token == "create":
+            self.parse_create()
 
     def parse_setter(self):
         field = self.gettok()         
@@ -483,7 +506,11 @@ class SQLExecutor:
          
     
     def execute(self):
-        if self.parser.update_table:
+        if self.parser.create_join_clause: 
+            print("Creating a join")
+            print(self.parser.create_join_clause)
+
+        elif self.parser.update_table:
             entries = []
             for server in servers:
                 subset = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
@@ -495,15 +522,12 @@ class SQLExecutor:
             print(entries)
             
         elif self.parser.fts_clause:
-            entries = []
             for server in servers:
                 subset = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
                     "parser": self.parser.__dict__
                     })).text)
-                if subset:
-                    entries = entries + subset
-            print("From data node")
-            print(entries)
+                yield from subset
+
              
             
         elif self.parser.insert_values:
