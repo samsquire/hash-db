@@ -14,6 +14,34 @@ This project uses Google's pygtrie and [Michaeln Nielsen's consistent hashing co
 
 Run ./start-all.sh to start server with 3 data nodes.
 
+# Distributed joins
+
+First, register a join with the server:
+
+```
+print("create join sql")
+statement = """create join
+    inner join people on people.id = items.people
+    inner join products on items.search = products.name
+    """
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": statement
+    }))
+print(url)
+print(response.text)
+
+```
+
+Insert data. The join is maintained as you insert data.
+
+In parallel, we run the join on every server and accumulate results from each server.
+
+```
+curl -H"Content-type: application/json" -X POST http://localhost:1005/sql --data-ascii '{"sql": "select products.price, people.people_name, items.search from items inner join people on items.people = people.id inner join products on items.search = products.name"}'
+
+```
+
 # API standard
 
 ## Sort key begins with value
