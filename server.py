@@ -673,6 +673,7 @@ class SQLExecutor:
                             data = SQLExecutor(parser).execute()
                             for data in data:
                                 server = data[0]
+                                print("Data from {}, we are inserting into server {}".format(server, servers[machine_index]))
                                 if server != servers[machine_index]:
                                     # new_key = "R.{}.{}.{}".format(insert_table, new_insert_count, field)
                                     response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
@@ -687,6 +688,12 @@ class SQLExecutor:
                                             left_table,
                                             new_insert_count,
                                             "id"), data=str(new_insert_count)) 
+                                    response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
+                                            servers[machine_index],
+                                            right_table, new_insert_count,
+                                            right_table,
+                                            search_value,
+                                            "id"), data=str(search_value)) 
                                 # have to create a key on 
 
             

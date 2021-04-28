@@ -313,6 +313,10 @@ class SQLExecutor:
 
     def networkjoin(self, data):
             table_datas, field_reductions = self.get_tables([["{}.{}".format(data["select_table"], data["id_field"])]])
+            print(data["id_field"])
+            print(data["missing_field"])
+            table_datas[0].append(("fake", data["records"], data["join_field"], "smaller"))
+            pprint(table_datas)
             records = []
             for index, pair in enumerate(table_datas):
                 records = self.hash_join(index, table_datas)
