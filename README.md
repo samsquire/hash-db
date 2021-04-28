@@ -33,7 +33,7 @@ print(response.text)
 
 ```
 
-Insert data. The join is maintained as you insert data.
+Insert data. The join is maintained as you insert data. Data is spread out across the cluster.
 
 In parallel, we run the join on every server and accumulate results from each server.
 
