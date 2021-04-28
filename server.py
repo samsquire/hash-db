@@ -28,6 +28,7 @@ between_index = {}
 both_between_index = PartitionTree("", None)
 partition_trees = {}
 table_counts = {}
+joins = {}
 
 class Worker(Thread):
     def __init__(self):
@@ -75,7 +76,7 @@ def bootstrap(port):
     return make_response(json.dumps(bootstrapped_keys), 202)
 
 @app.route("/set/<partition_key>/<sort_key>", methods=["POST"])
-def set(partition_key, sort_key):
+def set_value(partition_key, sort_key):
     lookup_key = partition_key + ":" + sort_key
     machine_index = hashes["hashes"].get_machine(partition_key)
     response = requests.post("http://{}/set/{}/{}".format(servers[machine_index], partition_key, sort_key), data=request.data)
@@ -281,7 +282,6 @@ class Parser():
     
     def parse_rest(self):
         operation = self.gettok()
-        print(operation)
         if operation == None:
             return
         if operation == "group":
@@ -291,7 +291,7 @@ class Parser():
             
         if operation == "inner":
             join = self.gettok()
-            self.join_table = self.gettok() # never actually used
+            self.join_table = self.gettok()
             on = self.gettok()
             join_target_1 = self.gettok()
             
@@ -311,7 +311,6 @@ class Parser():
         print(value)
         if re.match("[0-9\.]+", value):
             value = int(value)
-        print("Equals operator:" + equals)
         if equals == "eq":
             self.where_clause.append((field, value))
         if equals == "tilde":
@@ -509,6 +508,26 @@ class SQLExecutor:
         if self.parser.create_join_clause: 
             print("Creating a join")
             print(self.parser.create_join_clause)
+            for clause in self.parser.create_join_clause: 
+                left_table, left_field = clause[0].split(".") 
+                right_table, right_field = clause[1].split(".") 
+                print(left_table)
+                print(right_table)
+                if left_table in joins:
+                    joins[left_table].append({"clause": clause})
+                else:
+                    joins[left_table] = [{"clause": clause}]
+                if right_table in joins:
+                    joins[right_table].append({"clause": clause})
+                else:
+                    joins[right_table] = [{"clause": clause}]
+
+            print(joins)
+
+                # if you insert into left table, you also need to insert join targets into right table  
+                # i need to do a select right.id from right_table where left_table.left_field = right_table.right_field
+                # i need to insert left_field onto all servers that return a right id
+                 
 
         elif self.parser.update_table:
             entries = []
@@ -569,12 +588,18 @@ class SQLExecutor:
                     "value": value
                 })
                 if not created:
-                    new_key = "R.{}.{}.id".format(insert_table, new_insert_count, field)
+                    new_key = "R.{}.{}.id".format(insert_table, new_insert_count)
                     items.append({
                         "key": new_key,
                         "value": new_insert_count
                     })
                     created = True
+
+                    new_key = "S.{}.{}.{}.{}".format(insert_table, "id", new_insert_count, new_insert_count)
+                    items.append({
+                        "key": new_key,
+                        "value": new_insert_count
+                    })
 
                 items.sort(key=itemgetter('key'))
 
@@ -600,6 +625,69 @@ class SQLExecutor:
                             partition_trees[partition_key] = partition_tree
                         between_index[partition_key].insert(sort_key, partition_key, partition_key + ":" + sort_key)
                         partition_trees[partition_key].partition_tree.insert(sort_key, partition_key, partition_key + ":" + sort_key)
+
+               # we need to check if any materialized joins 
+                if insert_table in joins:
+                    join_clauses = joins[insert_table]
+                    print(join_clauses)
+                    for join_clause in join_clauses:
+                        clauses = join_clause["clause"]
+                        left_components = clauses[0].split(".")
+                        left_table = left_components[0]
+                        left_field = left_components[1]
+
+                        right_components = clauses[1].split(".")
+                        right_table = right_components[0]
+                        right_field = right_components[1]
+
+                        if right_table == insert_table:
+                           print("We need to swap") 
+                           temp_table = right_table
+                           temp_field = right_field
+                           right_table = left_table
+                           right_field = left_field
+                           left_table = temp_table 
+                           left_field = temp_field
+
+
+                        print("Do we need to join this inserted data?")
+                        print(field)
+                        print(left_field)
+                        search_value = value
+                        if left_field == "id":
+                            search_value = str(new_insert_count)
+                        
+                        if field == left_field or left_field == "id":
+                        
+                            # Do the prejoin
+                            parser = Parser()
+                            statement = "select {}.id, {}.{} from {} where {}.{} = {}".format(
+                                        right_table,
+                                        right_table, right_field,
+                                        right_table,
+                                        right_table,
+                                        right_field,
+                                        search_value)
+                            parser.parse(statement)
+                            print(statement)
+                            data = SQLExecutor(parser).execute()
+                            for data in data:
+                                server = data[0]
+                                if server != servers[machine_index]:
+                                    # new_key = "R.{}.{}.{}".format(insert_table, new_insert_count, field)
+                                    response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
+                                            server,
+                                            left_table, new_insert_count,
+                                            left_table,
+                                            new_insert_count,
+                                            left_field), data=str(search_value)) 
+                                    response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
+                                            server,
+                                            left_table, new_insert_count,
+                                            left_table,
+                                            new_insert_count,
+                                            "id"), data=str(new_insert_count)) 
+                                # have to create a key on 
 
             
         elif self.parser.group_by:
@@ -640,57 +728,106 @@ class SQLExecutor:
             with ThreadPoolExecutor(max_workers=len(servers)) as executor:
                 future = executor.map(getresults, servers)
              
-            materialized = []
+            records = []
             for server in future:
-                for index, data_item in enumerate(server): 
-                    for size, field_reduction in enumerate(data_item):
-                         
-                        if len(materialized) <= size:
-                            entry = []
-                            materialized.append(entry)
-                        entry = materialized[size]
-                        for pairindex, pair in enumerate(field_reduction):
-                            if len(entry) <= pairindex:
-                                entry.append((pair["data"], pair["field"], "smaller"))
-                            else: 
-                                entry[pairindex] = (entry[pairindex][0] + pair["data"], pair["field"], "smaller")
+                for item in server:
+                    records = records + item
 
-            def correct_sizing(table_datas_item):
-                left = "smaller"
-                right = "smaller"
-                if len(table_datas_item[0]) > len(table_datas_item[1]):
-                    left = "bigger"
-                    right = "smaller"
-                if len(table_datas_item[0]) < len(table_datas_item[1]):
-                    left = "smaller"
-                    right = "bigger"
+            print(records)
 
-                return [(table_datas_item[0], table_datas_item[0], left),
-                        (table_datas_item[1], table_datas_item[1], right)]
-                    
-
-            pprint(materialized) 
-            records = [] 
-            for index, pair in enumerate(map(correct_sizing, materialized)):
-                records = list(self.hash_join(records, index, pair, materialized))
-                
-
-            records = self.process_wheres(records)
-            print("records from join" + str(records))
-            
+            missing_fields = set()
+            missing_records = []
             for record in records:
+                if record["missing_fields"]:
+                    missing_fields = missing_fields.union(set(record["missing_fields"]))
+                    for dataitem in record["outputs"]:
+                        missing_records.append(dataitem)
+            print("Missing fields:")
+            print(missing_fields) 
+
+            for missing_field in missing_fields:
+                for select_clause in self.parser.select_clause:
+                    select_table, select_field = select_clause.split(".")
+                    if select_field == missing_field:
+                        for join_clause in self.parser.join_clause:
+                            left_components = join_clause[0].split(".")
+                            left_table = left_components[0]
+                            left_field = left_components[1]
+                            right_components = join_clause[1].split(".")
+                            right_table = right_components[0]
+                            right_field = right_components[1]
+
+                            
+                            if select_table == left_table:  
+                                id_field = left_field     
+                                join_field = right_field
+                                 
+                            elif select_table == right_table:  
+                                id_field = right_field     
+                                join_field = left_field
+                            
+                            print("select {} from {} inner join {} on {} = {}".format(
+                                missing_field, "network_table", select_table, id_field, join_field))  
+
+        
+                            def getresults(server):
+                                response = json.loads(requests.post("http://{}/networkjoin".format(server), data=json.dumps({ 
+                                    "parser": self.parser.__dict__,
+                                    "records": missing_records,
+                                    "id_field": id_field,
+                                    "join_field": join_field,
+                                    "missing_field": missing_field,
+                                    "select_table": select_table
+                                    })).text)
+
+                                yield response          
+
+                            with ThreadPoolExecutor(max_workers=len(servers)) as executor:
+                                future = executor.map(getresults, servers)
+                                for server in future:
+                                    for rowset in server:
+                                        for missing_data, missing_record in zip(rowset, missing_records):
+                                            print("Missing data")
+                                            print(missing_data)
+                                            if missing_data:
+                                                missing_record[missing_field] = missing_data
+
+                            
+
+            outputs = []
+            for item in records:
+                for obj in item["outputs"]:
+                    outputs.append(obj)
+            # here                
+            header = ""
+            output_lines = []
+            have_printed_header = False
+            for result in outputs:
                 output_line = []
-                for clause in self.parser.select_clause:
-                    table, field = clause.split(".")
-                    output_line.append(record.get(field, "MISSING"))
-                print(output_line)
+                for field in self.parser.select_clause:
+
+                    if field == "*":
+                        for key, value in result.items():
+                            if not have_printed_header:
+                                header.append(key)
+                            output_line.append(value)
+                    else:
+                        table, field_name = field.split(".")
+                        output_line.append(result[field_name])
+                output_lines.append(output_line)
+                have_printed_header = True
+            print(header)
+            yield from output_lines
+                        
                 
         elif self.parser.select_clause:
             for server in servers:
                 subset = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
                     "parser": self.parser.__dict__
                     })).text)
-                yield from subset
+                for result in subset:
+                    item = [server] + result
+                    yield item                  
 
 
 
@@ -756,6 +893,7 @@ def sql():
     statement = json.loads(request.data)["sql"]
     parser = Parser()
     parser.parse(statement)
+    print(statement)
     def items():
         yield from SQLExecutor(parser).execute()
      

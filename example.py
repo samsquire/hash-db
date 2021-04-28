@@ -70,6 +70,18 @@ response = requests.get(url)
 print(url)
 print(response.text)
 
+print("create join sql")
+statement = """create join
+    inner join people on people.id = items.people
+    inner join products on items.search = products.name
+    """
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": statement 
+    }))
+print(url)
+print(response.text)
+
 print("1 insert sql")
 url = "http://{}/sql".format(args.server)
 response = requests.post(url, data=json.dumps({
@@ -155,22 +167,49 @@ print(response.text)
 print("insert sql")
 url = "http://{}/sql".format(args.server)
 response = requests.post(url, data=json.dumps({
-    "sql": "insert into items (search, people) values ('Spanner', 3)" 
+    "sql": "insert into products (name, price) values ('Tree', 1000)" 
+    }))
+print(url)
+print(response.text)
+
+print("insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into products (name, price) values ('Spanner', 450)" 
     }))
 print(url)
 print(response.text)
 
 
-
-
-print("create join sql")
-statement = """create join
-    inner join people on people.id = items.people
-    inner join products on items.search = products.name
-    """
+print("insert sql")
 url = "http://{}/sql".format(args.server)
 response = requests.post(url, data=json.dumps({
-    "sql": statement 
+    "sql": "insert into products (name, price) values ('Spanner', 600)" 
+    }))
+print(url)
+print(response.text)
+
+
+print("insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into items (search, people) values ('Spanner', 3)" 
+    }))
+print(url)
+print(response.text)
+
+print("insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into items (search, people) values ('Tree', 3)" 
+    }))
+print(url)
+print(response.text)
+
+print("insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into items (search, people) values ('Spanner', 2)" 
     }))
 print(url)
 print(response.text)
@@ -178,10 +217,11 @@ print(response.text)
 print("query sql")
 statement = """select products.price, people.people_name,
     items.search from items
-    inner join people on people.id = items.people
+    inner join people on items.people = people.id
     inner join products on items.search = products.name
     """
 url = "http://{}/sql".format(args.server)
+print(statement)
 response = requests.post(url, data=json.dumps({
     "sql": statement 
     }))

@@ -17,7 +17,7 @@ parser.add_argument("--server")
 parser.add_argument("--port")
 args = parser.parse_args(os.environ["HASHDB_ARGS"].split(" "))
 
-self_server = "localhost" + args.port
+self_server = "localhost" + ":" + args.port
 
 data = {}
 indexed = {}
@@ -58,10 +58,11 @@ def get(lookup_key):
     return make_response(str(data[lookup_key]))
 
 @app.route("/set/<partition_key>/<sort_key>", methods=["POST"])
-def set(partition_key, sort_key):
+def set_value(partition_key, sort_key):
 
-    
+     
     lookup_key = partition_key + ":" + sort_key
+    print("{} Saving {} to {}".format(self_server, request.data, lookup_key))
     data[lookup_key] = request.data.decode('utf-8')
     if lookup_key in indexed:
         return make_response(str(response.status_code), response.status_code)
@@ -166,9 +167,8 @@ def deindex(partition_key, table, identifier, field_name, value):
             pass
 
 class SQLExecutor:
-    def __init__(self, parser, materialized):
+    def __init__(self, parser):
         self.parser = parser
-        self.materialized = materialized
     
     def get_tables(self, table_def):
         table_datas = []
@@ -181,7 +181,7 @@ class SQLExecutor:
                     table_data = sql_index.iteritems(prefix=row_filter)
                 except:
                     table_data = []
-                pair_data.append((table_data, field, "smaller"))
+                pair_data.append((table, table_data, field, "smaller"))
             table_datas.append(pair_data)
 
 
@@ -191,13 +191,13 @@ class SQLExecutor:
                     yield from reduce_table(metadata, record)
 
                 if metadata["current_record"] != {}:
+                    print(metadata["current_record"])
                     yield metadata["current_record"]
             except:
                 if metadata["current_record"] != {}:
                     yield metadata["current_record"]
 
         def reduce_table(table_metadata, record):
-            print(record)
             sort_key, lookup_key = record
             components = sort_key.split(".")
             identifier = components[2]
@@ -208,6 +208,7 @@ class SQLExecutor:
                 table_metadata["current_record"]["internal_id"] = identifier
                 table_metadata["current_record"][field_name] = data[lookup_key]
             elif last_id != identifier:
+                print(table_metadata["current_record"])
                 yield table_metadata["current_record"]
                 # reset
                 table_metadata["current_record"] = {}
@@ -221,52 +222,86 @@ class SQLExecutor:
         for index, pair in enumerate(table_datas):
             pair_items = []
             for item in pair:
-                table, join_field, size = item
+                name, table, join_field, size = item
                 field_reduction = table_reductions(table, defaultdict(dict))
                 pair_items.append(field_reduction)
             field_reductions.append(pair_items)
         
         for table_data, field_reduction in zip(table_datas, field_reductions):
             for index, old_row in enumerate(table_data):
-                table_data[index] = (field_reduction[index], old_row[1], old_row[2])
+                table_data[index] = (old_row[0], field_reduction[index], old_row[2], old_row[3])
 
         return table_datas, field_reductions
     
-    def hash_join(self, records, index, pair, table_datas, process_records=True):
+    def hash_join_simple(self, join_table, scan, test):
+        ids_for_key = defaultdict(list)
+
+        field = "{}_{}".format(join_table, "id")
+        for item in itertools.chain(scan):
+            if field not in item:
+                continue
+            left_field = item[field]
+            if left_field in ids_for_key:
+                ids_for_key[left_field].append(item)
+            else:
+                ids_for_key[left_field] = [item]
+
+        try:
+            for item in itertools.chain(test):
+                
+                if field in item and item[field] in ids_for_key:
+                    item_value = item[field]
+                    print("Join merge Found match: {} in ids_for_key".format(item_value))
+                    for match in ids_for_key[item[field]]:
+                        print("Yielding match result!")
+                        yield {**item, **match }
+
+
+        except KeyError:
+            pass
+
+    def hash_join(self, index, table_datas):
         ids_for_key = defaultdict(list)
         lhs = 0
         scan = None
         for innerindex, entry in enumerate(table_datas[index]):
-            collection, fieldname, size = entry
+            name, collection, fieldname, size = entry
             if size == "smaller":
                 lhs = innerindex
                 scan = collection
                 break 
-                
-        for item in itertools.chain(records, scan):
-            field = table_datas[index][lhs][1]
+
+        for item in itertools.chain(scan):
+            field = table_datas[index][lhs][2]
+            print("Saving {} in probe for {}".format(item, field))
             if field not in item:
                 continue
             left_field = item[field]
-            ids_for_key[left_field] = item
+            if left_field in ids_for_key:
+                print("Already a value for {}".format(left_field))
+                ids_for_key[left_field].append(item)
+            else:
+                ids_for_key[left_field] = [item]
         
         test = None
         rhs = 1
         for rhsindex, entry in enumerate(table_datas[index]):
-            collection, fieldname, size = entry
+            name, collection, fieldname, size = entry
             if collection is not scan:
                 rhs = rhsindex
                 test = collection
                 break
 
         try:
-            for item in test:
+            for item in itertools.chain(test):
                 
-                if table_datas[index][rhs][1] in item and item[table_datas[index][rhs][1]] in ids_for_key:
-                    item_value = item[table_datas[index][rhs][1]]
+                if table_datas[index][rhs][2] in item and item[table_datas[index][rhs][2]] in ids_for_key:
+                    item_value = item[table_datas[index][rhs][2]]
                     print("Found match: {} in ids_for_key".format(item_value))
-                    yield {**ids_for_key[item[table_datas[index][rhs][1]]], **item}
-
+                    for match in ids_for_key[item[table_datas[index][rhs][2]]]:
+                        print("Yielding match result!")
+                        yield {**match, **item}
+                        
         except KeyError:
             pass
 
@@ -275,7 +310,51 @@ class SQLExecutor:
             table_counts[table_name] = 0
         return table_counts[table_name]
          
+
+    def networkjoin(self, data):
+            table_datas, field_reductions = self.get_tables([["{}.{}".format(data["select_table"], data["id_field"])]])
+            records = []
+            for index, pair in enumerate(table_datas):
+                records = self.hash_join(index, table_datas)
+            
+            missing_fields = []
+            missing_field = data["missing_field"]
+            for record in records:
+               missing_fields.append(record[missing_field])
+
+            yield from missing_fields
+              
+    def mark_join_table(self, table_datas, field_reductions, join_table):
+
+        def enrich_table(collection):
+            for item in collection:
+                if "id" in item:
+                    item["{}_{}".format(join_table, "id")] = item["id"]
+                    yield item
+
+        new_table_datas = []
+        new_field_reductions = []
+        for pair in table_datas: 
+            new_pair = []
+            for entry in pair:
+                name, table, field, size = entry
+                if name == join_table:
+                    table = enrich_table(table)
+                new_pair.append((name, table, field, size)) 
+                new_field_reductions.append(table)
+            new_table_datas.append(new_pair)
+        return new_table_datas, field_reductions
     
+    def rewrite_joins(self, table_datas):
+        new_table_datas = [] 
+        new_table_datas.append(table_datas[0]) 
+        
+        for table_data in table_datas[1:]:
+            table_name, collection, field, size = table_data[0]
+            new_table_datas.append([(table_name, "previous", field, size), table_data[1]])
+            new_table_datas.append([(table_name, "previous", field, size), (table_name, collection, field, size)])
+        return new_table_datas[:-1]
+
     def execute(self):
         if self.parser["updates"]:
             table_datas, field_reductions = self.get_tables([["{}.".format(self.parser["update_table"])]])
@@ -394,16 +473,42 @@ class SQLExecutor:
         elif self.parser["join_clause"]:
             table_datas, field_reductions = self.get_tables(self.parser["join_clause"])
 
-            materialized_collections = []
-            for item in table_datas:
-                pair = []
-                for entry in item:
-                    collection, field, size = entry
-                    pair.append({"field": field, "data": list(collection)})
-                materialized_collections.append(pair)
-            
-            yield from materialized_collections
-            
+            table_datas, field_reductions = self.mark_join_table(table_datas, field_reductions, self.parser["table_name"])
+            table_datas = self.rewrite_joins(table_datas)
+            pprint(table_datas)
+
+            previous = list(self.hash_join(0, table_datas))
+            pprint(table_datas)
+            print("First join")
+            pprint(previous) 
+            for index, pair in enumerate(table_datas[1:]):
+                entries = table_datas[index + 1] 
+                table_name, collection, field, size = entries[0]
+                if collection == "previous":
+                    table_datas[index + 1][0] = (table_name, previous, field, size)  
+
+                previous = list(self.hash_join(index + 1, table_datas))
+                print("Second join")
+                pprint(previous)
+                
+
+            records = self.process_wheres(previous)
+            print("records from join" + str(records))
+            print(len(records))
+            missing_fields = set() 
+            output_lines = []
+            pprint(records)
+            for record in records:
+                # output_line = []
+                output_lines.append(record)
+                for clause in self.parser["select_clause"]:
+                    table, field = clause.split(".")
+                    if field not in record:
+                        missing_fields.add(field)
+                # output_lines.append(output_line)
+            print(len(output_lines))
+            print(len(records))
+            yield {"outputs": output_lines, "missing_fields": list(missing_fields)}
                 
         elif self.parser["select_clause"]:
             table_datas, field_reductions = self.get_tables([["{}.".format(self.parser["table_name"])]])
@@ -412,9 +517,8 @@ class SQLExecutor:
             output_lines = []
             print(field_reductions)
             for result in self.process_wheres(field_reductions[0][0]):
-                output_lines = []
+                output_line = []
                 for field in self.parser["select_clause"]:
-                    output_line = []
                     print(result)
                     if field == "*":
                         for key, value in result.items():
@@ -423,10 +527,12 @@ class SQLExecutor:
                                 header.append(key)
                             output_line.append(value)
                     else:
-                        output_line.append(result[field])
-                    output_lines.append(output_line)
-                yield from output_lines
+                        table, field_name = field.split(".")
+                        output_line.append(result[field_name])
+                output_lines.append(output_line)
                 have_printed_header = True
+
+            yield from output_lines
             print(header)
             print(output_lines)
 
@@ -470,7 +576,7 @@ class SQLExecutor:
                     table_data = []
                 
                 reductions.append([table_data, input_data])
-                table_datas.append([(table_data, "id", "smaller"), (input_data, "id", "bigger")])
+                table_datas.append([("name", table_data, "id", "smaller"), (input_data, "id", "bigger")])
         
         for restriction, value in where_clause:
             print("Running hash join for where clause value " + str(value))
@@ -488,19 +594,12 @@ class SQLExecutor:
                     pass
             table_data = tabledata() 
             reductions.append([table_data, input_data])
-            table_datas.append([(table_data, "id", "smaller"), (input_data, "id", "bigger")])
+            table_datas.append([("name", table_data, "id", "smaller"), ("name", input_data, "id", "bigger")])
         
-        process_records = True
         
         for index, pair in enumerate(table_datas):
-            if and_or[index] == "and":
-                records = list(self.hash_join(records, index, pair, table_datas, process_records=True))
+            records = list(self.hash_join(index, table_datas))
                 
-            if and_or[index] == "or":
-                matched = list(self.hash_join(records, index, pair, table_datas, process_records=False))
-                if matched:
-                    records = records + matched
-            print(records)
         return records
 
 @app.route("/sql", methods=["POST"])
@@ -508,7 +607,14 @@ def sql():
     print("Executing sql on data node")
     data = json.loads(request.data) 
     parser = data["parser"]
-    materialized = data.get("materialized", [])
     def items():
-        yield from SQLExecutor(parser, materialized).execute()
+        yield from SQLExecutor(parser).execute()
+    return Response(json.dumps(list(items())))
+
+@app.route("/networkjoin", methods=["POST"])
+def networkjoin():
+    print("Executing network join on data node")
+    data = json.loads(request.data) 
+    def items():
+        yield from SQLExecutor(data["parser"]).networkjoin(data)
     return Response(json.dumps(list(items())))
