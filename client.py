@@ -318,6 +318,7 @@ class SQLExecutor:
          
 
     def networkjoin(self, data):
+            missing_fields = []
             for join_spec in data["join_specs"]:
                 table_datas, field_reductions = self.get_tables([["{}.{}".format(join_spec["select_table"], join_spec["id_field"])]])
                 print(join_spec["id_field"])
@@ -328,7 +329,6 @@ class SQLExecutor:
                 for index, pair in enumerate(table_datas):
                     records = self.hash_join(index, table_datas)
                 
-                missing_fields = []
                 missing_field = join_spec["missing_field"]
                 for record in records:
                    if missing_field in record:
