@@ -318,20 +318,21 @@ class SQLExecutor:
          
 
     def networkjoin(self, data):
-            table_datas, field_reductions = self.get_tables([["{}.{}".format(data["select_table"], data["id_field"])]])
-            print(data["id_field"])
-            print(data["missing_field"])
-            table_datas[0].append(("fake", data["records"], data["join_field"], "smaller"))
-            pprint(table_datas)
-            records = []
-            for index, pair in enumerate(table_datas):
-                records = self.hash_join(index, table_datas)
-            
-            missing_fields = []
-            missing_field = data["missing_field"]
-            for record in records:
-               if missing_field in record:
-                   missing_fields.append([record["missing_index"], record[missing_field]])
+            for join_spec in data["join_specs"]:
+                table_datas, field_reductions = self.get_tables([["{}.{}".format(join_spec["select_table"], join_spec["id_field"])]])
+                print(join_spec["id_field"])
+                print(join_spec["missing_field"])
+                table_datas[0].append(("fake", data["records"], join_spec["join_field"], "smaller"))
+                pprint(table_datas)
+                records = []
+                for index, pair in enumerate(table_datas):
+                    records = self.hash_join(index, table_datas)
+                
+                missing_fields = []
+                missing_field = join_spec["missing_field"]
+                for record in records:
+                   if missing_field in record:
+                       missing_fields.append([record["missing_index"], record[missing_field]])
 
             yield from missing_fields
               

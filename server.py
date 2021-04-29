@@ -763,6 +763,19 @@ class SQLExecutor:
                 missing_index[str(index)] = missing_record
                 missing_record["missing_index"] = str(index)
 
+            def trim_record(join_fields, items):
+                for item in items:
+                    data = {
+                            "missing_index": item["missing_index"],
+                            "id": item["id"]
+                    }
+                    for join_field in join_fields:
+                        data[join_field] = item[join_field]
+                    yield data
+
+            join_fields = []
+            join_specs = []
+
             for missing_field in missing_fields:
                 for select_clause in self.parser.select_clause:
                     select_table, select_field = select_clause.split(".")
@@ -796,44 +809,46 @@ class SQLExecutor:
                                 missing_field, "network_table", select_table, id_field, join_field))  
 
 
-                            def trim_record(item):
-                                return {
-                                        "missing_index": item["missing_index"],
-                                        join_field: item[join_field],
-                                        "id": item["id"]
-                                }
-        
-                            def getresults(server):
-                                valid_matches = list(map(trim_record, list(filter(lambda x: join_field in x, missing_records))))
-                                print("Valid matches")
-                                pprint(valid_matches)
-                                response = json.loads(requests.post("http://{}/networkjoin".format(server), data=json.dumps({ 
-                                    "parser": self.parser.__dict__,
-                                    "records": valid_matches,
+                            join_fields.append(join_field)
+
+                            join_specs.append({ 
                                     "id_field": id_field,
                                     "join_field": join_field,
                                     "missing_field": missing_field,
                                     "select_table": select_table
-                                    })).text)
+                                    })
 
-                                yield response          
 
-                            with ThreadPoolExecutor(max_workers=len(servers)) as executor:
-                                future = executor.map(getresults, servers)
-                                print("Doing network join...")
-                                for server in future:
-                                    for rowset in server:
-                                        print("Missing data records")
-                                        print(len(missing_records))
-                                        pprint(missing_records)
-                                        for missing_data in rowset:
-                                            print("Missing data")
-                                            print(missing_data)
-                                            missing_index_key, found_data = missing_data
-                                            if missing_data:
-                                                missing_index[missing_index_key][missing_field] = found_data
-                            
-                            
+            valid_matches = list(trim_record(join_fields, filter(lambda x: join_field in x, missing_records)))
+            print("Valid matches")
+            pprint(valid_matches)
+
+            def getresults(server):
+                response = json.loads(requests.post("http://{}/networkjoin".format(server), data=json.dumps({
+                    
+                    "parser": self.parser.__dict__,
+                    "join_specs": join_specs,
+                    "records": valid_matches
+                    })).text)
+
+                yield response          
+
+            with ThreadPoolExecutor(max_workers=len(servers)) as executor:
+                future = executor.map(getresults, servers)
+                print("Doing network join...")
+                for server in future:
+                    for rowset in server:
+                        print("Missing data records")
+                        print(len(missing_records))
+                        pprint(missing_records)
+                        for missing_data in rowset:
+                            print("Missing data")
+                            print(missing_data)
+                            missing_index_key, found_data = missing_data
+                            if missing_data:
+                                missing_index[missing_index_key][missing_field] = found_data
+                
+                    
 
             outputs = []
             for item in records:
