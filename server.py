@@ -795,9 +795,16 @@ class SQLExecutor:
                             print("select {} from {} inner join {} on {} = {}".format(
                                 missing_field, "network_table", select_table, id_field, join_field))  
 
+
+                            def trim_record(item):
+                                return {
+                                        "missing_index": item["missing_index"],
+                                        join_field: item[join_field],
+                                        "id": item["id"]
+                                }
         
                             def getresults(server):
-                                valid_matches = list(filter(lambda x: join_field in x, missing_records))
+                                valid_matches = list(map(trim_record, list(filter(lambda x: join_field in x, missing_records))))
                                 print("Valid matches")
                                 pprint(valid_matches)
                                 response = json.loads(requests.post("http://{}/networkjoin".format(server), data=json.dumps({ 
