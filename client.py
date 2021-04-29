@@ -218,12 +218,18 @@ class SQLExecutor:
                 table_metadata["current_record"][field_name] = data[lookup_key]
 
 
+        def table_enricher(table, collection):
+            for row in collection:
+                if "id" in row:
+                    row["{}_{}".format(table, "id")] = row["id"]
+                yield row
+
         field_reductions = []
         for index, pair in enumerate(table_datas):
             pair_items = []
             for item in pair:
                 name, table, join_field, size = item
-                field_reduction = table_reductions(table, defaultdict(dict))
+                field_reduction = table_enricher(name, table_reductions(table, defaultdict(dict)))
                 pair_items.append(field_reduction)
             field_reductions.append(pair_items)
         
@@ -520,11 +526,10 @@ class SQLExecutor:
             have_printed_header = False
             header = []
             output_lines = []
-            print(field_reductions)
             for result in self.process_wheres(field_reductions[0][0]):
+                skip = False
                 output_line = []
                 for field in self.parser["select_clause"]:
-                    print(result)
                     if field == "*":
                         for key, value in result.items():
                             
@@ -533,7 +538,12 @@ class SQLExecutor:
                             output_line.append(value)
                     else:
                         table, field_name = field.split(".")
-                        output_line.append(result[field_name])
+                        if field_name not in result:
+                            skip = True
+                        else:
+                            output_line.append(result[field_name])
+                if skip:
+                    continue
                 output_lines.append(output_line)
                 have_printed_header = True
 

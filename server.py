@@ -556,6 +556,7 @@ class SQLExecutor:
             created = False
             new_insert_count = 1
             for field, value in zip(self.parser.insert_fields, self.parser.insert_values):
+                all_servers = []
                 table_size = self.get_table_size(insert_table)
                 if not created:
                     new_insert_count = table_size + 1
@@ -590,11 +591,13 @@ class SQLExecutor:
                 })
                 if not created:
                     new_key = "R.{}.{}.id".format(insert_table, new_insert_count)
-                    items.append({
+                    new_id = {
                         "key": new_key,
                         "value": new_insert_count
-                    })
+                    }
+                    items.append(new_id)
                     created = True
+                    all_servers.append(new_id)
 
                     new_key = "S.{}.{}.{}.{}".format(insert_table, "id", new_insert_count, new_insert_count)
                     items.append({
@@ -603,7 +606,12 @@ class SQLExecutor:
                     })
 
                 items.sort(key=itemgetter('key'))
-
+                for item in all_servers:
+                    for server in servers:
+                        partition_key = "{}.{}".format(insert_table, new_insert_count)
+                        sort_key = item["key"]
+                        lookup_key = partition_key + ":" + sort_key
+                        response = requests.post("http://{}/set/{}/{}".format(server, partition_key, sort_key), data=str(item["value"]))
 
                 for item in items:
                     partition_key = "{}.{}".format(insert_table, new_insert_count)
@@ -769,12 +777,14 @@ class SQLExecutor:
 
                             id_field = None 
                             if select_table == left_table:  
-                                id_field = left_field     
-                                join_field = right_field
+                                id_field = "id"     
+                                join_field = "{}_{}".format(left_table, "id")
+                                print("Join field -> {}".format(join_field))
                                  
                             elif select_table == right_table:  
-                                id_field = right_field     
-                                join_field = left_field
+                                id_field = "id"     
+                                join_field = "{}_{}".format(right_table, "id")
+                                print("Join field -> {}".format(join_field))
 
                             if not id_field:
                                 print(select_table) 
@@ -787,9 +797,12 @@ class SQLExecutor:
 
         
                             def getresults(server):
+                                valid_matches = list(filter(lambda x: join_field in x, missing_records))
+                                print("Valid matches")
+                                pprint(valid_matches)
                                 response = json.loads(requests.post("http://{}/networkjoin".format(server), data=json.dumps({ 
                                     "parser": self.parser.__dict__,
-                                    "records": missing_records,
+                                    "records": valid_matches,
                                     "id_field": id_field,
                                     "join_field": join_field,
                                     "missing_field": missing_field,
@@ -800,19 +813,19 @@ class SQLExecutor:
 
                             with ThreadPoolExecutor(max_workers=len(servers)) as executor:
                                 future = executor.map(getresults, servers)
+                                print("Doing network join...")
                                 for server in future:
                                     for rowset in server:
                                         print("Missing data records")
                                         print(len(missing_records))
                                         pprint(missing_records)
-                                        print(len(rowset))
                                         for missing_data in rowset:
                                             print("Missing data")
                                             print(missing_data)
                                             missing_index_key, found_data = missing_data
                                             if missing_data:
                                                 missing_index[missing_index_key][missing_field] = found_data
-                            break
+                            
                             
 
             outputs = []
@@ -824,6 +837,7 @@ class SQLExecutor:
             output_lines = []
             have_printed_header = False
             for result in outputs:
+                skip = False
                 output_line = []
                 for field in self.parser.select_clause:
 
@@ -834,7 +848,12 @@ class SQLExecutor:
                             output_line.append(value)
                     else:
                         table, field_name = field.split(".")
-                        output_line.append(result[field_name])
+                        if field_name not in result:
+                            skip = True
+                        else:
+                            output_line.append(result[field_name])
+                if skip:
+                    continue
                 output_lines.append(output_line)
                 have_printed_header = True
             print(header)
