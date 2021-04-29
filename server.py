@@ -1,3 +1,4 @@
+import random
 import time
 import json
 import pygtrie
@@ -671,30 +672,38 @@ class SQLExecutor:
                             parser.parse(statement)
                             print(statement)
                             data = SQLExecutor(parser).execute()
-                            for data in data:
-                                server = data[0]
-                                print("Data from {}, we are inserting into server {}".format(server, servers[machine_index]))
-                                if server != servers[machine_index]:
-                                    # new_key = "R.{}.{}.{}".format(insert_table, new_insert_count, field)
+                            for match in data:
+                                for server in servers:
+                                    server_value = match[1]
+                                    print("Data from {}, we are inserting {} into server {}".format(server, server_value, servers[machine_index]))
+                                    print("{} {}".format(left_table, right_table))
                                     response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
                                             server,
-                                            left_table, new_insert_count,
-                                            left_table,
-                                            new_insert_count,
-                                            left_field), data=str(search_value)) 
-                                    response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
-                                            server,
-                                            left_table, new_insert_count,
-                                            left_table,
-                                            new_insert_count,
-                                            "id"), data=str(new_insert_count)) 
+                                            right_table, server_value,
+                                            right_table,
+                                            server_value,
+                                            right_field), data=str(search_value)) 
                                     response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
                                             servers[machine_index],
-                                            right_table, new_insert_count,
+                                            right_table, server_value,
                                             right_table,
-                                            search_value,
-                                            "id"), data=str(search_value)) 
-                                # have to create a key on 
+                                            server_value,
+                                            "id"), data=server_value) 
+                                    if server != servers[machine_index]:
+                                        # new_key = "R.{}.{}.{}".format(insert_table, new_insert_count, field)
+                                        response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
+                                                server,
+                                                left_table, new_insert_count,
+                                                left_table,
+                                                new_insert_count,
+                                                left_field), data=str(search_value)) 
+                                        response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
+                                                server,
+                                                left_table, new_insert_count,
+                                                left_table,
+                                                new_insert_count,
+                                                "id"), data=str(new_insert_count)) 
+                                    # have to create a key on 
 
             
         elif self.parser.group_by:
@@ -724,21 +733,10 @@ class SQLExecutor:
                 
         elif self.parser.join_clause:
 
-
-            def getresults(server):
-                response = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
-                    "parser": self.parser.__dict__
-                    })).text)
-
-                yield response          
-
-            with ThreadPoolExecutor(max_workers=len(servers)) as executor:
-                future = executor.map(getresults, servers)
-             
-            records = []
-            for server in future:
-                for item in server:
-                    records = records + item
+            server = random.choice(servers)
+            records = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
+                "parser": self.parser.__dict__
+                })).text)
 
             print(records)
 
@@ -751,6 +749,11 @@ class SQLExecutor:
                         missing_records.append(dataitem)
             print("Missing fields:")
             print(missing_fields) 
+            missing_index = {}
+
+            for index, missing_record in enumerate(missing_records): 
+                missing_index[str(index)] = missing_record
+                missing_record["missing_index"] = str(index)
 
             for missing_field in missing_fields:
                 for select_clause in self.parser.select_clause:
@@ -764,7 +767,7 @@ class SQLExecutor:
                             right_table = right_components[0]
                             right_field = right_components[1]
 
-                            
+                            id_field = None 
                             if select_table == left_table:  
                                 id_field = left_field     
                                 join_field = right_field
@@ -772,6 +775,12 @@ class SQLExecutor:
                             elif select_table == right_table:  
                                 id_field = right_field     
                                 join_field = left_field
+
+                            if not id_field:
+                                print(select_table) 
+                                print(left_table) 
+                                print(right_table) 
+                                continue
                             
                             print("select {} from {} inner join {} on {} = {}".format(
                                 missing_field, "network_table", select_table, id_field, join_field))  
@@ -793,12 +802,17 @@ class SQLExecutor:
                                 future = executor.map(getresults, servers)
                                 for server in future:
                                     for rowset in server:
-                                        for missing_data, missing_record in zip(rowset, missing_records):
+                                        print("Missing data records")
+                                        print(len(missing_records))
+                                        pprint(missing_records)
+                                        print(len(rowset))
+                                        for missing_data in rowset:
                                             print("Missing data")
                                             print(missing_data)
+                                            missing_index_key, found_data = missing_data
                                             if missing_data:
-                                                missing_record[missing_field] = missing_data
-
+                                                missing_index[missing_index_key][missing_field] = found_data
+                            break
                             
 
             outputs = []

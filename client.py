@@ -254,7 +254,7 @@ class SQLExecutor:
                     print("Join merge Found match: {} in ids_for_key".format(item_value))
                     for match in ids_for_key[item[field]]:
                         print("Yielding match result!")
-                        yield {**item, **match }
+                        yield {**match,**item }
 
 
         except KeyError:
@@ -324,7 +324,8 @@ class SQLExecutor:
             missing_fields = []
             missing_field = data["missing_field"]
             for record in records:
-               missing_fields.append(record[missing_field])
+               if missing_field in record:
+                   missing_fields.append([record["missing_index"], record[missing_field]])
 
             yield from missing_fields
               
@@ -608,7 +609,7 @@ class SQLExecutor:
 
 @app.route("/sql", methods=["POST"])
 def sql():
-    print("Executing sql on data node")
+    print("Executing sql on data node {}".format(self_server))
     data = json.loads(request.data) 
     parser = data["parser"]
     def items():
@@ -617,7 +618,7 @@ def sql():
 
 @app.route("/networkjoin", methods=["POST"])
 def networkjoin():
-    print("Executing network join on data node")
+    print("Executing network join on data node {}".format(self_server))
     data = json.loads(request.data) 
     def items():
         yield from SQLExecutor(data["parser"]).networkjoin(data)
