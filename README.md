@@ -16,6 +16,8 @@ Run ./start-all.sh to start server with 3 data nodes.
 
 # Distributed joins
 
+Data is distributed across the cluster, with some rows being on one server only. I haven't gotten around to load balancing the data.
+
 First, register a join with the server:
 
 ```
@@ -35,7 +37,7 @@ print(response.text)
 
 Insert data. The join is maintained as you insert data. Data is spread out across the cluster.
 
-In parallel, we run the join on every server and accumulate results from each server.
+In join on one server and then ask for missing data from the other data nodes.
 
 ```
 curl -H"Content-type: application/json" -X POST http://localhost:1005/sql --data-ascii '{"sql": "select products.price, people.people_name, items.search from items inner join people on items.people = people.id inner join products on items.search = products.name"}'
