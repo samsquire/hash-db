@@ -1,8 +1,8 @@
 # hash-db
 
-You can create a basic database with a hash table and a prefix trie. See hash-db.py. This reflects dynamodb style querying. You can create a basic distributed database with consistent hashing. See client.py and server.py. Data is rebalanced onto nodes as new servers are added. SQL is parsed on the server and work distributed to data nodes. [Please see this blog post](https://elaeis.cloud-angle.com/?p=183). For how distributed join works: [see this blog post](https://elaeis.cloud-angle.com/?p=192).
+You can create a basic database with a hash table and a prefix trie. See hash-db.py It's a very small database. This reflects dynamodb style querying. You can create a basic distributed database with consistent hashing. See client.py and server.py. Data is rebalanced onto nodes as new servers are added. SQL is parsed on the server and work distributed to data nodes. [Please see this blog post](https://elaeis.cloud-angle.com/?p=183). For how distributed join works: [see this blog post](https://elaeis.cloud-angle.com/?p=192).
 
-This demonstrates that use case.
+This project demonstrates how simple a database can be. Do not use for serious data, it's only stored in memory and there is no persistence.
 
 [See this stackoverflow question](https://stackoverflow.com/questions/63420723/is-dynamodb-a-trie-in-front-of-a-distributed-hash-table)
 
