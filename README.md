@@ -21,6 +21,13 @@ Data is distributed across the cluster, with rows being on one server each. I ha
 First, register a join with the server:
 
 ```
+create join
+    inner join people on people.id = items.people
+    inner join products on items.search = products.name
+
+```
+
+```
 print("create join sql")
 statement = """create join
     inner join people on people.id = items.people
