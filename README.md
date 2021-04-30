@@ -16,7 +16,7 @@ Run ./start-all.sh to start server with 3 data nodes.
 
 # Distributed joins
 
-Data is distributed across the cluster, with some rows being on one server only. I haven't gotten around to load balancing the data.
+Data is distributed across the cluster, with rows being on one server each. I haven't gotten around to load balancing the data.
 
 First, register a join with the server:
 
