@@ -229,7 +229,7 @@ class SQLExecutor:
             pair_items = []
             for item in pair:
                 name, table, join_field, size = item
-                field_reduction = table_enricher(name, table_reductions(table, defaultdict(dict)))
+                field_reduction = list(table_enricher(name, table_reductions(table, defaultdict(dict))))
                 pair_items.append(field_reduction)
             field_reductions.append(pair_items)
         
@@ -332,7 +332,7 @@ class SQLExecutor:
                 missing_field = join_spec["missing_field"]
                 for record in records:
                    if missing_field in record:
-                       missing_fields.append([record["missing_index"], record[missing_field]])
+                       missing_fields.append([missing_field, record["missing_index"], record[missing_field]])
 
             yield from missing_fields
               

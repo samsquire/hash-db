@@ -844,7 +844,7 @@ class SQLExecutor:
                         for missing_data in rowset:
                             print("Missing data")
                             print(missing_data)
-                            missing_index_key, found_data = missing_data
+                            missing_field, missing_index_key, found_data = missing_data
                             if missing_data:
                                 missing_index[missing_index_key][missing_field] = found_data
                 
