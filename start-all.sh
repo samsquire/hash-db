@@ -10,6 +10,8 @@ sleep 2
 
 export HASHDB_ARGS="--server localhost:1005 --port 1008" ; sudo -E $(which gunicorn) -w 1 -k gevent  client:app --bind 127.0.0.1:1008 &
 sleep 2
+export HASHDB_ARGS="--server localhost:1005 --port 1009" ; sudo -E $(which gunicorn) -w 1 -k gevent  client:app --bind 127.0.0.1:1009 &
+sleep 2
 python3 example.py --server localhost:1005 
 
 sleep 2

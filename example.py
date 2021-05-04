@@ -74,6 +74,7 @@ print("create join sql")
 statement = """create join
     inner join people on people.id = items.people
     inner join products on items.search = products.name
+    inner join reviews on items.search = reviews.product
     """
 url = "http://{}/sql".format(args.server)
 response = requests.post(url, data=json.dumps({
@@ -210,6 +211,14 @@ print("insert sql")
 url = "http://{}/sql".format(args.server)
 response = requests.post(url, data=json.dumps({
     "sql": "insert into items (search, people) values ('Spanner', 2)" 
+    }))
+print(url)
+print(response.text)
+
+print("insert sql")
+url = "http://{}/sql".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "sql": "insert into reviews (score, product) values ('5', 'Spanner')" 
     }))
 print(url)
 print(response.text)
