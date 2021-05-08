@@ -90,3 +90,22 @@ response = requests.post(url, data=json.dumps({                                 
 print(url)                                                                                                             |        for index, pair in enumerate(table_datas):                                                                    
 print(response.text) 
 ```
+
+## Cypher interface
+
+```
+curl -H"Content-type: application/json" -X POST http://localhost:1005/cypher --data-ascii '{"key": "1", "cypher": "match (start:Person)-[:FRIEND]->(end:Person), (start)-[:LIKES]->(post:Post), (end)-[:POSTED]->(post) return start, end, post"}'
+```
+
+```
+query = """match (start:Person)-[:FRIEND]->(end:Person), (start)-[:LIKES]->(post:Post), (end)-[:POSTED]->(post) return start, end, post"""
+print(query)
+url = "http://{}/cypher".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "key": "1",
+    "cypher": query
+    }))
+print(url)
+print(response.text)
+
+```
