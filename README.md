@@ -18,6 +18,8 @@ This project uses Google's pygtrie and [Michaeln Nielsen's consistent hashing co
 
 # Running
 
+Run `pip install -r requirements.txt`
+
 Run ./start-all.sh to start server with 3 data nodes. See example.py for the tests that I run as part of development.
 
 # Distributed joins
