@@ -236,3 +236,43 @@ response = requests.post(url, data=json.dumps({
     }))
 print(url)
 print(response.text)
+
+
+queries = [
+"""merge (person:Person {'name': 'Samuel'})-[:FRIEND]->(tasya:Person {'name': 'Tasya'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:FRIEND]->(obj:Person {'name': 'Samuel'})""",
+"""merge (person:Person {'name': 'Samuel'})-[:FRIEND]->(obj:Person {'name': 'Simon'})""",
+"""merge (person:Person {'name': 'Simon'})-[:FRIEND]->(obj:Person {'name': 'Samuel'})""",
+"""merge (person:Person {'name': 'Samuel'})-[:FRIEND]->(obj:Person {'name': 'John'})""",
+"""merge (person:Person {'name': 'Simon'})-[:FRIEND]->(obj:Person {'name': 'Sally'})""",
+"""merge (person:Person {'name': 'Sally'})-[:FRIEND]->(obj:Person {'name': 'Simon'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:FRIEND]->(obj:Person {'name': 'Margaret'})""",
+"""merge (person:Person {'name': 'Margaret'})-[:FRIEND]->(obj:Person {'name': 'Tasya'})""",
+"""merge (person:Person {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Ideas'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Ideas'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Thoughts'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Lamentations'})""",
+"""merge (person:Person {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Thoughts'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:LIKES]->(obj:Food {'name': 'Pocky'})"""
+]
+
+for query in queries:
+    print(query)
+    url = "http://{}/cypher".format(args.server)
+    response = requests.post(url, data=json.dumps({
+        "key": "1",
+        "cypher": query 
+        }))
+    print(url)
+    print(response.text)
+
+query = """match (start:Person)-[:FRIEND]->(end:Person), (start)-[:LIKES]->(post:Post), (end)-[:POSTED]->(post) return start, end, post"""
+print(query)
+url = "http://{}/cypher".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "key": "1",
+    "cypher": query 
+    }))
+print(url)
+print(response.text)
+

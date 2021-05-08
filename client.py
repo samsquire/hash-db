@@ -11,6 +11,9 @@ from pprint import pprint
 from collections import defaultdict
 from operator import itemgetter
 import itertools
+import numpy as np
+from pprint import pprint
+import copy
 
 parser = ArgumentParser()
 parser.add_argument("--server")
@@ -633,4 +636,514 @@ def networkjoin():
     data = json.loads(request.data) 
     def items():
         yield from SQLExecutor(data["parser"]).networkjoin(data)
+    return Response(json.dumps(list(items())))
+
+class Graph:
+    
+    def __init__(self):
+        self.nodes = []
+        self.data = {}
+        self.index = {}
+        self.relationships = {}
+        self.directions = defaultdict(dict)
+        self.attribute_index = {}
+        self.size = 0
+        
+    def add_relationship(self, name):
+        self.data[name] = np.empty((self.size, self.size))
+        self.data[name].fill(0)
+
+    def index_attributes(self, position, attributes):
+        for key, value in attributes.items():
+            lookup_string = "{}={}".format(key, value)
+            if lookup_string in self.attribute_index:
+                self.attribute_index[lookup_string].append(position)
+            else:
+                self.attribute_index[lookup_string] = [position]
+        
+    def ensure_relationship(self, name):
+        if name not in self.data:    
+            self.add_relationship(name)
+        
+
+    def add_node(self, name, attributes):
+        position = len(self.nodes)
+        attributes["name"] = name
+        data = {"position": position, "name": name, "attributes": attributes}
+        self.index[name] = data
+        
+        self.index_attributes(position, attributes)
+        
+        self.nodes.append(data)
+        self.size = position + 1
+        for relationship, relationship_data in self.data.items():
+            print("Resizing data {} {}".format(self.size, self.size))
+            pprint("Before resize")
+            pprint(self.data[relationship].shape)
+           
+            self.data[relationship] = np.hstack([relationship_data, np.zeros([self.data[relationship].shape[0], 1 ])])
+            self.data[relationship] = np.vstack([self.data[relationship], np.zeros([1, self.data[relationship].shape[1]])])
+            pprint("After resize")
+            pprint(self.data[relationship].shape)
+    
+    def add_edge(self, _from, to, relationship):
+        from_node = self.index[_from]
+        to_node = self.index[to]
+        print("{} ({}) -> {} ({})".format(
+            from_node["name"], from_node["position"], to_node["name"], to_node["position"]))
+        
+        self.data[relationship][from_node["position"]][to_node["position"]] = 1
+        self.data[relationship][to_node["position"]][from_node["position"]] = 1
+        
+        direction_index = "{}_{}".format(from_node["position"], to_node["position"])
+        print(direction_index)                            
+        self.directions[relationship][direction_index] = True
+        if to == "Tasya":
+            pprint(self.data[relationship])
+        # self.relationships["{}_{}".format(from_node["position"], to_node["position"])] = attributes
+        
+        
+    
+    def edges_from(self, relationship, node):
+        multiply = np.empty((self.data[relationship].shape[0], self.data[relationship].shape[1]))
+        print("Multiply matrix")
+        multiply.fill(0)
+        for item in range(0, self.data[relationship].shape[1]):
+            multiply[self.index[node]["position"], item] = 1
+            # multiply[item, self.index[node]["position"]] = 1
+        pprint(multiply)
+        print("Result matrix")
+        edges_from = np.matmul(self.data[relationship], multiply)
+        pprint(edges_from)
+        for item in range(0, edges_from.shape[1]):
+            print("{}? {}".format(self.nodes[item]["name"], edges_from[item, item]))
+        print("Edges from them them onwards")
+        from_them = np.matmul(self.data[relationship], edges_from)
+        print("From them")
+        pprint(from_them)
+        for item in range(0, from_them.shape[1]):
+            print("{}? {}".format(self.nodes[item]["name"], from_them[item, item]))
+    
+    def find_nodes_from_attributes(self, attributes):
+        matches = set()
+        for key, value in attributes.items():
+            lookup_string = "{}={}".format(key, value)
+            if lookup_string in self.attribute_index:
+                for node in self.attribute_index[lookup_string]:
+                    
+                    matches.add(node)
+        for item in matches:
+            yield self.nodes[item]
+    
+    def find_nodes_by_label(self, label):
+        return self.find_nodes_from_attributes({"label": label})
+    
+    def create_matrix(self, adjacency_matrix, nodes):
+        multiply = np.empty((adjacency_matrix.shape[0], adjacency_matrix.shape[1]))
+        multiply.fill(0)
+        for node in nodes:
+            for item in range(0, adjacency_matrix.shape[1]):
+                multiply[node["position"]][item] = 1
+        return multiply
+    
+    def query(self, parser):
+        count = 0
+        matching_stack = []
+        matching_nodes = []
+        relationships = []
+        variables = {}
+         
+        if parser["merge"]:
+            for planning_index, planning_node in enumerate(parser["graph"]):
+                if planning_node["kind"] == "merge":
+                    # create node if it doesn't exist
+                    # first we search for it
+                    matching_nodes = list(self.find_nodes_from_attributes(planning_node["attributes"]))
+                    # root.add_node("Sally", {"label": "Person"})
+                    
+                    if not matching_nodes:
+                        print("Creating node")
+                        attributes = {"label": planning_node["label"]}        
+                        attributes.update(planning_node["attributes"])
+
+                        self.add_node(planning_node["attributes"]["name"], attributes)
+                if planning_node["kind"] == "relationship":
+                    self.ensure_relationship(planning_node["name"])
+
+
+        if parser["match"]:
+            for planning_index, planning_node in enumerate(parser["graph"]):
+                
+                
+                if planning_node["kind"] == "match":
+                    
+                    matching_stack.append(planning_node)
+                    pprint(len(matching_stack))
+                    if len(matching_stack) == 1:
+                        print("We in first match")
+                        
+                        matching_nodes = []
+                        
+                        if relationships:
+                            # we have context to begin with
+                            print("We're continuing from the beginning context")
+                            
+                            seen_before = planning_node["variable"] in variables
+                            print(seen_before)
+                            
+                            
+                            
+                            
+                        elif "attributes" in planning_node and planning_node["attributes"]:
+                            # we need to find a source node based on attributes
+                            matching_nodes = list(self.find_nodes_from_attributes(planning_node["attributes"]))
+                            pprint(matching_nodes)
+                        elif "label" in planning_node:
+                            matching_nodes = self.find_nodes_by_label(planning_node["label"])
+                            print("Found matching nodes")
+                            
+                        else:
+                            print("We're starting with all nodes firstly")
+                            matching_nodes = self.nodes
+                        
+                        if matching_nodes:
+                        
+                            def enrich_variable(nodes):
+                                variable_name = planning_node["variable"]
+                                for matching_node in nodes:
+                                    copy = matching_node.copy()
+                                    copy[variable_name] = True
+                                    yield copy
+
+
+                            if "variable" in planning_node:
+                                matching_nodes = enrich_variable(matching_nodes)
+
+                            # relationships.clear()
+                            # create initial relationships
+
+                            count = 0
+                            for matching_node in matching_nodes:
+                                print("Adding {}".format(matching_node["name"]))
+                                matches = []
+                                count = count + 1
+                                relationships.append({
+                                    "id": count,
+                                    "matches": matches,
+                                    "old_matches": [],
+                                    "count": 0
+                                    
+                                })
+                                matches.append({
+                                    "to_node": matching_node,
+                                    "planning_index": planning_index
+                                })
+
+                        
+                        
+                        if "variable" in planning_node and planning_node["variable"] not in variables:
+                            variables[planning_node["variable"]] = {
+                                "planning_index": planning_index,
+                                "relationships": relationships,
+                                "start_nodes": matching_nodes,
+                                "matching_nodes": matching_nodes,
+                                "usages": 0,
+                                "left_hand_variable": True,
+                                "filled": False
+                            }
+                    
+                    
+                    else:
+                        seen_before = planning_node["variable"] in variables
+                        
+                        if seen_before:
+                            # we have to do some merging of data
+                            print("{} has been seen before - we need to merge".format(planning_node["variable"]))
+                            needs_merge = True
+                            old_version = variables[planning_node["variable"]]["planning_index"]
+                            for relationship in relationships:
+                                current_matches = relationship["matches"]
+                                
+                                for match in relationship["old_matches"][1:]:
+                                    
+                                    if match:
+                                        this_index = match[0]["planning_index"]
+                                        if this_index == old_version:
+                                            # we need to merge matches and relationship["matches"]
+                                            print("We need to merge this data")
+                                            
+                                            deletions = []
+                                            for current_match in current_matches:
+                                                from_node = current_match["to_node"]
+                                                found = False
+                                                for node in match:
+                                                    if node["to_node"]["name"] == from_node["name"]:
+                                                        found = True
+                                                        break
+                                                if not found:
+                                                    deletions.append(current_match)
+                                            for deletion in deletions:
+                                                current_matches.remove(deletion)
+                                                    
+                                                
+                                            
+                                            
+                                            
+                            
+                        
+                        # we're re-matching to end nodes
+                        # we don't need to keep track of the start anymore
+                        starting_nodes = matching_stack.pop(0)
+                        print("Length after pop {}".format(len(matching_stack)))
+                        if "variable" in planning_node and planning_node["variable"] not in variables:
+                            variable_name = planning_node["variable"]
+                            
+                            variables[variable_name] = {
+                                "relationships": relationships,
+                                "usages": 0,
+                                "left_hand_variable": False,
+                                "filled": False
+                            }
+                        
+                        pprint("Marking as filled {}".format(planning_node["variable"]))
+                        variables[planning_node["variable"]]["filled"] = True
+                        
+                        starting_nodes_variable = starting_nodes["variable"]
+                        pprint(starting_nodes_variable)
+                        if "variable" in starting_nodes and starting_nodes_variable not in variables:
+                            variables[starting_nodes_variable] = {}
+                        
+                        
+                        right_matching_nodes = []
+                        print("We're merging")
+                        pprint(planning_node)
+                        
+                        if "label" in planning_node:
+                            label = planning_node["label"]
+                            
+                            rdeletions = []
+                            for relation in relationships:
+                                
+                                deletions = []
+                                for match in relation["matches"]:
+                                    if "planning_index" not in match:
+                                        match["planning_index"] = planning_index
+                                    if match["to_node"]["attributes"]["label"] != label:
+
+                                        deletions.append(match)
+                                    else:
+                                        print("Saving {} to {}".format(label, variable))
+                                        right_matching_nodes.append(match["to_node"])
+                            
+                                for deletion in deletions:
+                                    pass  # relationship["matches"].remove(deletion)
+                                if len(relation["matches"]) == 0:
+                                    # delete it
+                                    # rdeletions.append(relation)
+                                    pass
+                            for deletion in rdeletions:
+                                relationships.remove(deletion)
+                                    
+                        else:
+                            for relationship in relationships:
+                                for match in relationship["matches"]:
+                                    right_matching_nodes.append(match["to_node"])
+                        
+                        
+                        
+                        if "planning_index" in variables[planning_node["variable"]]:
+                            print("We need to rotate the relationships")
+                            source_matches = variables[planning_node["variable"]]["planning_index"]
+                            print("We need {}".format(source_matches))
+                            
+                            for relationship in relationships:
+                                temporary_matches = None
+                                for old_matches in relationship["old_matches"][1:]:
+                                    if len(old_matches) > 0:
+                                        this_planning_index = old_matches[0]["planning_index"]
+                                        print("Found matches with planning index of {}".format(this_planning_index))
+                                        if this_planning_index == source_matches:
+                                            temporary_matches = relationship["matches"]
+                                            relationship["matches"] = old_matches
+                                            relationship["rotated"] = True
+                                
+                                if temporary_matches:
+                                    relationship["old_matches"].append(temporary_matches)
+                        
+                        
+                        variables[planning_node["variable"]]["planning_index"] = planning_index 
+                        
+                        if not seen_before:
+                            for matching_node in right_matching_nodes:
+                                matching_node[planning_node["variable"]] = True
+                        
+                        matching_stack.pop()
+                            
+                     
+                        
+                        
+                
+                if planning_node["kind"] == "relationship":
+                    
+                    active_relationships = relationships
+                    left_hand_variable = False
+                    variable = None
+                    variable_filled = False
+                    if "variable" in matching_stack[-1]:
+                        pprint(matching_stack[-1])
+                        variable = matching_stack[-1]["variable"]
+                        left_hand_variable = variables[variable]["left_hand_variable"]                    
+                        variable_filled = variables[variable]["filled"]
+                        print("Found variable {}".format(variable_filled))
+                        active_relationships = variables[variable]["relationships"]
+                        
+                    
+                    relationship_name = planning_node["name"]
+                    
+                    print("Now searching {}".format(relationship_name))
+                    
+                    
+                    adjacency_matrix = self.data[relationship_name]
+                    new_matching_nodes = []
+                    
+                    deletions = []
+                    
+                    
+                    
+                    for relationship in active_relationships:
+                        # if this relationship refers to left hand graph clause
+                        # ie match (person:Person)-[:FRIEND_OF]->(person2:Person)
+                        # person is a left hand variable because it starts the chain
+                        
+                        relationship["old_matches"].append(relationship["matches"])
+                        
+                        if left_hand_variable and relationship["count"] == 1:
+                            matches = relationship["old_matches"][0]
+                        elif variable and variable_filled:
+                            matching_index = variables[variable]["planning_index"]
+                            print("We're loading data from a past run {} for variable {}".format(matching_index, variable))
+                            found = False
+                            for match in relationship["old_matches"]:
+                                if match:
+                                    
+                                    
+                                    if match[0]["planning_index"] == matching_index:
+                                        # we need to use this data
+                                        
+                                        matches = match
+                                        found = True
+                                        pprint(matches)
+                                        break
+                            if not found:
+                                print("Could not find data for {}".format(relationship))
+                                pprint(relationship)
+                                continue
+                                # matches = relationship["matches"]
+                                        
+                        
+                        else:
+                            matches = relationship["matches"]
+                            
+                        if relationship_name == "LIKES":
+                            pprint(matches)
+                        
+                        
+                        relationship["count"] = relationship["count"] + 1
+                        
+                        relationship["matches"] = []
+                        
+                        for match in matches:
+                            node = match["to_node"]
+                            multiply_matrix = self.create_matrix(adjacency_matrix, [node])
+                            edges_from = np.matmul(adjacency_matrix, multiply_matrix)
+                            
+                            for item in range(0, edges_from.shape[1]):
+                               
+                                if edges_from[item][item] == 1:
+                                    direction_index = "{}_{}".format(node["position"], self.nodes[item]["position"])
+                                    
+                                    
+                                    if self.directions[relationship_name].get(direction_index, False) == True:
+                                        print("{} -{}-> {}".format(node["name"], relationship_name, self.nodes[item]["name"]))    
+                                        
+                                        relationship["matches"].append({
+                                            "relationship": relationship_name,
+                                            "from_node": node,
+                                            "to_node": self.nodes[item]
+                                        })
+                                  
+                                        
+                                        new_matching_nodes.append(self.nodes[item])
+                                    
+                        
+                    
+                    
+                    # update the variable
+                    if "variable" in matching_stack[-1]:
+                        variables[matching_stack[-1]["variable"]]["relationships"] = active_relationships
+                    relationships = active_relationships
+        
+        if parser["merge"]:
+            
+            for left, middle, right in zip(*[iter(parser["graph"])]*3):
+                if middle["kind"] == "relationship":
+                    print("Creating relationship")
+                    left_node = left["attributes"]["name"]
+                    right_node = right["attributes"]["name"]
+                    self.add_edge(left_node, right_node, middle["name"])
+        
+        pprint(parser["graph"])
+        pprint(relationships)
+        print("Return clauses")
+        pprint(parser["return_clause"])
+        
+        if parser["match"]:
+            for relation in relationships:
+
+                output_row = {}
+                invalid_match = False
+                for return_clause in parser["return_clause"]:
+                    if return_clause not in output_row:
+                            output_row[return_clause] = []
+                    for matching in relation["matches"]:
+
+                        if "rotated" not in relation:
+                            if matching["from_node"].get(return_clause):
+                                output_row[return_clause].append(matching["from_node"])
+                            elif matching["to_node"].get(return_clause):
+                                output_row[return_clause].append(matching["to_node"])
+
+
+
+                    for old_matches in reversed(relation["old_matches"][1:]):
+                        found = False
+                        if not old_matches:
+                            invalid_match = True
+                        for old_match in old_matches:
+                            if old_match["from_node"].get(return_clause):
+
+                                output_row[return_clause].append(old_match["from_node"])
+                                found = True
+
+                            elif old_match["to_node"].get(return_clause):
+                                output_row[return_clause].append(old_match["to_node"])
+                                found = True
+
+                        if found:
+                            break
+                for return_clause in parser["return_clause"]:
+                    if not output_row.get(return_clause, None):
+                        invalid_match = True
+                if not invalid_match:
+                    yield output_row
+
+graphs = Graph()
+
+@app.route("/cypher", methods=["POST"])
+def cypher():
+    print("Executing cypher on data node {}".format(self_server))
+    data = json.loads(request.data) 
+    parser = data["parser"]
+    def items():
+        yield from graphs.query(parser)
     return Response(json.dumps(list(items())))

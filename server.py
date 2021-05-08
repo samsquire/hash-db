@@ -18,6 +18,7 @@ import re
 from collections import defaultdict
 from functools import reduce
 import itertools
+from cypher import CypherParser
 
 hashes = {
     "hashes": None
@@ -958,5 +959,31 @@ def sql():
     print(statement)
     def items():
         yield from SQLExecutor(parser).execute()
+     
+    return Response(json.dumps(list(items())))
+
+class CypherExecutor:
+    def __init__(self, parser):
+        self.parser = parser
+
+    def execute(self, server_key):
+        machine_index = hashes["hashes"].get_machine(server_key)
+        subset = json.loads(requests.post("http://{}/cypher".format(servers[machine_index]), data=json.dumps({ 
+            "parser": self.parser.__dict__
+            })).text)
+        yield from subset
+         
+         
+
+@app.route("/cypher", methods=["POST"])
+def cypher():
+    request_data = json.loads(request.data)
+    statement = request_data["cypher"]
+    server_key = request_data["key"]
+    parser = CypherParser()
+    parser.parse(statement)
+    print(statement)
+    def items():
+        yield from CypherExecutor(parser).execute(server_key)
      
     return Response(json.dumps(list(items())))
