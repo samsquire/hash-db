@@ -1,6 +1,12 @@
 # hash-db
 
-You can create a basic database with a hash table and a prefix trie. See hash-db.py It's a very small database. This reflects dynamodb style querying. You can create a basic distributed database with consistent hashing. See client.py and server.py. Data is rebalanced onto nodes as new servers are added. SQL is parsed on the server and work distributed to data nodes. [Please see this blog post](https://elaeis.cloud-angle.com/?p=183). For how distributed join works: [see this blog post](https://elaeis.cloud-angle.com/?p=192).
+This is an experimental project.
+
+* You can create a basic database with a hash table and a prefix trie. See hash-db.py It's a very small database.
+* This reflects dynamodb style querying.
+* You can create a basic distributed database with consistent hashing. See client.py and server.py. Data is rebalanced onto nodes as new servers are added.
+* SQL is parsed on the server and work distributed to data nodes. [Please see this blog post](https://elaeis.cloud-angle.com/?p=183). For how distributed join works: [see this blog post](https://elaeis.cloud-angle.com/?p=192).
+* Cypher is parsed on the server and distributed to a data node for processing. Graphs only live on one data node at a time. I haven't worked out how to distribute their processing yet.
 
 This project demonstrates how simple a database can be. Do not use for serious data, it's only stored in memory and there is no persistence.
 
