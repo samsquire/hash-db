@@ -739,11 +739,10 @@ class Graph:
         return self.find_nodes_from_attributes({"label": label})
     
     def create_matrix(self, adjacency_matrix, nodes):
-        multiply = np.empty((adjacency_matrix.shape[0], adjacency_matrix.shape[1]))
+        multiply = np.empty((adjacency_matrix.shape[0], 1))
         multiply.fill(0)
         for node in nodes:
-            for item in range(0, adjacency_matrix.shape[1]):
-                multiply[node["position"]][item] = 1
+                multiply[node["position"]][0] = 1
         return multiply
     
     def query(self, parser):
@@ -1057,9 +1056,9 @@ class Graph:
                             multiply_matrix = self.create_matrix(adjacency_matrix, [node])
                             edges_from = np.matmul(adjacency_matrix, multiply_matrix)
                             
-                            for item in range(0, edges_from.shape[1]):
+                            for item in range(0, edges_from.shape[0]):
                                
-                                if edges_from[item][item] == 1:
+                                if edges_from[item][0] == 1:
                                     direction_index = "{}_{}".format(node["position"], self.nodes[item]["position"])
                                     
                                     
