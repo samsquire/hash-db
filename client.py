@@ -1097,44 +1097,63 @@ class Graph:
         pprint(parser["return_clause"])
         
         if parser["match"]:
-            for relation in relationships:
+            def getrows():
+                for relation in relationships:
 
-                output_row = {}
-                invalid_match = False
-                for return_clause in parser["return_clause"]:
-                    if return_clause not in output_row:
-                            output_row[return_clause] = []
-                    for matching in relation["matches"]:
+                    output_row = {}
+                    invalid_match = False
+                    for return_clause in parser["return_clause"]:
+                        if return_clause not in output_row:
+                                output_row[return_clause] = []
+                        for matching in relation["matches"]:
 
-                        if "rotated" not in relation:
-                            if matching["from_node"].get(return_clause):
-                                output_row[return_clause].append(matching["from_node"])
-                            elif matching["to_node"].get(return_clause):
-                                output_row[return_clause].append(matching["to_node"])
+                            if "rotated" not in relation:
+                                if matching["from_node"].get(return_clause):
+                                    output_row[return_clause].append(matching["from_node"])
+                                elif matching["to_node"].get(return_clause):
+                                    output_row[return_clause].append(matching["to_node"])
 
 
 
-                    for old_matches in reversed(relation["old_matches"][1:]):
-                        found = False
-                        if not old_matches:
+                        for old_matches in reversed(relation["old_matches"][1:]):
+                            found = False
+                            if not old_matches:
+                                invalid_match = True
+                            for old_match in old_matches:
+                                if old_match["from_node"].get(return_clause):
+
+                                    output_row[return_clause].append(old_match["from_node"])
+                                    found = True
+
+                                elif old_match["to_node"].get(return_clause):
+                                    output_row[return_clause].append(old_match["to_node"])
+                                    found = True
+
+                            if found:
+                                break
+                    for return_clause in parser["return_clause"]:
+                        if not output_row.get(return_clause, None):
                             invalid_match = True
-                        for old_match in old_matches:
-                            if old_match["from_node"].get(return_clause):
+                    if not invalid_match:
+                        yield output_row
 
-                                output_row[return_clause].append(old_match["from_node"])
-                                found = True
+            outputs = getrows() 
+            output_variables = [] 
+            for variable in parser["return_clause"]:
+                output_variables.append(variable)
 
-                            elif old_match["to_node"].get(return_clause):
-                                output_row[return_clause].append(old_match["to_node"])
-                                found = True
-
-                        if found:
-                            break
-                for return_clause in parser["return_clause"]:
-                    if not output_row.get(return_clause, None):
-                        invalid_match = True
-                if not invalid_match:
-                    yield output_row
+            for outputrow in outputs: 
+                streams = []
+                for variable in parser["return_clause"]:
+                    streams.append(outputrow[variable])
+                
+                for streamdata in zip(*streams):
+                    pprint(streamdata)
+                    outputrow = {}                     
+                    for index, variable in enumerate(streamdata):
+                        outputrow[output_variables[index]] = variable
+                    yield outputrow
+        
 
 graphs = Graph()
 
