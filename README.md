@@ -95,7 +95,7 @@ print(response.text)
 
 ## Cypher interface
 
-For simplicity, we only support Cypher triples. But the sum of the triples can produce the same output as if the Cypher was all in one line.
+For simplicity, we only support Cypher triples. That is, (node)-[:relationship]-(node) separated by commas. But the sum of the triples can produce the same output as if the Cypher was all in one line.
 
 ```
 curl -H"Content-type: application/json" -X POST http://localhost:1005/cypher --data-ascii '{"key": "1", "cypher": "match (start:Person)-[:FRIEND]->(end:Person), (start)-[:LIKES]->(post:Post), (end)-[:POSTED]->(post) return start, end, post"}'
