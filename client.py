@@ -950,24 +950,6 @@ class Graph:
                         
                         
                         
-                        if "planning_index" in variables[planning_node["variable"]]:
-                            print("We need to rotate the relationships")
-                            source_matches = variables[planning_node["variable"]]["planning_index"]
-                            print("We need {}".format(source_matches))
-                            
-                            for relationship in relationships:
-                                temporary_matches = None
-                                for old_matches in relationship["old_matches"][1:]:
-                                    if len(old_matches) > 0:
-                                        this_planning_index = old_matches[0]["planning_index"]
-                                        print("Found matches with planning index of {}".format(this_planning_index))
-                                        if this_planning_index == source_matches:
-                                            temporary_matches = relationship["matches"]
-                                            relationship["matches"] = old_matches
-                                            relationship["rotated"] = True
-                                
-                                if temporary_matches:
-                                    relationship["old_matches"].append(temporary_matches)
                         
                         
                         variables[planning_node["variable"]]["planning_index"] = planning_index 
@@ -1025,7 +1007,7 @@ class Graph:
                             for match in relationship["old_matches"]:
                                 if match:
                                     
-                                    
+                                    pprint(match[0]) 
                                     if match[0]["planning_index"] == matching_index:
                                         # we need to use this data
                                         
@@ -1068,7 +1050,7 @@ class Graph:
                                         relationship["matches"].append({
                                             "relationship": relationship_name,
                                             "from_node": node,
-                                            "to_node": self.nodes[item]
+                                            "to_node": copy.deepcopy(self.nodes[item])
                                         })
                                   
                                         
@@ -1106,12 +1088,10 @@ class Graph:
                         if return_clause not in output_row:
                                 output_row[return_clause] = []
                         for matching in relation["matches"]:
-
-                            if "rotated" not in relation:
-                                if matching["from_node"].get(return_clause):
-                                    output_row[return_clause].append(matching["from_node"])
-                                elif matching["to_node"].get(return_clause):
-                                    output_row[return_clause].append(matching["to_node"])
+                            if matching["from_node"].get(return_clause):
+                                output_row[return_clause].append(matching["from_node"])
+                            elif matching["to_node"].get(return_clause):
+                                output_row[return_clause].append(matching["to_node"])
 
 
 
@@ -1124,11 +1104,11 @@ class Graph:
 
                                     output_row[return_clause].append(old_match["from_node"])
                                     found = True
+                  
 
                                 elif old_match["to_node"].get(return_clause):
                                     output_row[return_clause].append(old_match["to_node"])
                                     found = True
-
                             if found:
                                 break
                     for return_clause in parser["return_clause"]:
@@ -1136,8 +1116,11 @@ class Graph:
                             invalid_match = True
                     if not invalid_match:
                         yield output_row
+                    else:
+                        print("{} is invalid, not yielding".format(len(relation["old_matches"])))
 
-            outputs = getrows() 
+            outputs = list(getrows())
+            pprint(outputs)
             output_variables = [] 
             for variable in parser["return_clause"]:
                 output_variables.append(variable)
@@ -1148,7 +1131,6 @@ class Graph:
                     streams.append(outputrow[variable])
                 
                 for streamdata in zip(*streams):
-                    pprint(streamdata)
                     outputrow = {}                     
                     for index, variable in enumerate(streamdata):
                         outputrow[output_variables[index]] = variable

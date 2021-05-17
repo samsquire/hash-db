@@ -252,8 +252,11 @@ queries = [
 """merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Ideas'})""",
 """merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Thoughts'})""",
 """merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Lamentations'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Love'})""",
 """merge (person:Person {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Thoughts'})""",
-"""merge (person:Person {'name': 'Tasya'})-[:LIKES]->(obj:Food {'name': 'Pocky'})"""
+"""merge (person:Person {'name': 'Tasya'})-[:LIKES]->(obj:Food {'name': 'Pocky'})""",
+"""merge (person:Person {'name': 'Ideas'})-[:REFERS]->(obj:Person {'name': 'Margaret'})""",
+"""merge (person:Person {'name': 'Thoughts'})-[:REFERS]->(obj:Person {'name': 'John'})""",
 ]
 
 for query in queries:
@@ -266,7 +269,7 @@ for query in queries:
     print(url)
     print(response.text)
 
-query = """match (start:Person)-[:FRIEND]->(end:Person), (start)-[:LIKES]->(post:Post), (end)-[:POSTED]->(post) return start, end, post"""
+query = """match (start:Person)-[:FRIEND]->(end:Person), (start)-[:LIKES]->(post:Post), (end)-[:POSTED]->(post:Post), (post:Post)-[:REFERS]->(person:Person) return start, end, post, person"""
 print(query)
 url = "http://{}/cypher".format(args.server)
 response = requests.post(url, data=json.dumps({
