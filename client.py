@@ -194,7 +194,6 @@ class SQLExecutor:
                     yield from reduce_table(metadata, record)
 
                 if metadata["current_record"] != {}:
-                    print(metadata["current_record"])
                     yield metadata["current_record"]
             except:
                 if metadata["current_record"] != {}:
@@ -211,7 +210,6 @@ class SQLExecutor:
                 table_metadata["current_record"]["internal_id"] = identifier
                 table_metadata["current_record"][field_name] = data[lookup_key]
             elif last_id != identifier:
-                print(table_metadata["current_record"])
                 yield table_metadata["current_record"]
                 # reset
                 table_metadata["current_record"] = {}
@@ -324,10 +322,7 @@ class SQLExecutor:
             missing_fields = []
             for join_spec in data["join_specs"]:
                 table_datas, field_reductions = self.get_tables([["{}.{}".format(join_spec["select_table"], join_spec["id_field"])]])
-                print(join_spec["id_field"])
-                print(join_spec["missing_field"])
                 table_datas[0].append(("fake", data["records"], join_spec["join_field"], "smaller"))
-                pprint(table_datas)
                 records = []
                 for index, pair in enumerate(table_datas):
                     records = self.hash_join(index, table_datas)
@@ -490,12 +485,9 @@ class SQLExecutor:
 
             table_datas, field_reductions = self.mark_join_table(table_datas, field_reductions, self.parser["table_name"])
             table_datas = self.rewrite_joins(table_datas)
-            pprint(table_datas)
 
             previous = list(self.hash_join(0, table_datas))
-            pprint(table_datas)
             print("First join")
-            pprint(previous) 
             for index, pair in enumerate(table_datas[1:]):
                 entries = table_datas[index + 1] 
                 table_name, collection, field, size = entries[0]
@@ -504,7 +496,6 @@ class SQLExecutor:
 
                 previous = list(self.hash_join(index + 1, table_datas))
                 print("Second join")
-                pprint(previous)
                 
 
             records = self.process_wheres(previous)
@@ -512,7 +503,6 @@ class SQLExecutor:
             print(len(records))
             missing_fields = set() 
             output_lines = []
-            pprint(records)
             for record in records:
                 # output_line = []
                 output_lines.append(record)
@@ -698,8 +688,6 @@ class Graph:
         direction_index = "{}_{}".format(from_node["position"], to_node["position"])
         print(direction_index)                            
         self.directions[relationship][direction_index] = True
-        if to == "Tasya":
-            pprint(self.data[relationship])
         # self.relationships["{}_{}".format(from_node["position"], to_node["position"])] = attributes
         
         
@@ -726,12 +714,19 @@ class Graph:
     
     def find_nodes_from_attributes(self, attributes):
         matches = set()
+        found = []
         for key, value in attributes.items():
             lookup_string = "{}={}".format(key, value)
             if lookup_string in self.attribute_index:
-                for node in self.attribute_index[lookup_string]:
-                    
-                    matches.add(node)
+                found.append(set(self.attribute_index[lookup_string]))
+            else:
+                found.append(set())
+        
+        if len(matches) > 1:
+            matches = found[0].intersection(found[1:])
+        else:
+            matches = found[0]
+
         for item in matches:
             yield self.nodes[item]
     
@@ -777,7 +772,6 @@ class Graph:
                 if planning_node["kind"] == "match":
                     
                     matching_stack.append(planning_node)
-                    pprint(len(matching_stack))
                     if len(matching_stack) == 1:
                         print("We in first match")
                         
@@ -800,7 +794,6 @@ class Graph:
                             if "label" in planning_node:
                                 search["label"] = planning_node["label"]
                             matching_nodes = list(self.find_nodes_from_attributes(search))
-                            pprint(matching_nodes)
                         elif "label" in planning_node:
                             matching_nodes = self.find_nodes_by_label(planning_node["label"])
                             print("Found matching nodes")
@@ -908,18 +901,16 @@ class Graph:
                                 "filled": False
                             }
                         
-                        pprint("Marking as filled {}".format(planning_node["variable"]))
+                        # pprint("Marking as filled {}".format(planning_node["variable"]))
                         variables[planning_node["variable"]]["filled"] = True
                         
                         starting_nodes_variable = starting_nodes["variable"]
-                        pprint(starting_nodes_variable)
                         if "variable" in starting_nodes and starting_nodes_variable not in variables:
                             variables[starting_nodes_variable] = {}
                         
                         
                         right_matching_nodes = []
                         print("We're merging")
-                        pprint(planning_node)
                         
                         if "label" in planning_node:
                             label = planning_node["label"]
@@ -1006,7 +997,6 @@ class Graph:
                             matches = relationship["old_matches"][0]
                         elif variable and variable_filled:
                             matching_index = variables[variable]["planning_index"]
-                            print("We're loading data from a past run {} for variable {}".format(matching_index, variable))
                             found = False
                             for match in relationship["old_matches"]:
                                 if match:
@@ -1020,8 +1010,6 @@ class Graph:
                                         pprint(matches)
                                         break
                             if not found:
-                                print("Could not find data for {}".format(relationship))
-                                pprint(relationship)
                                 continue
                                 # matches = relationship["matches"]
                                         
@@ -1029,9 +1017,6 @@ class Graph:
                         else:
                             matches = relationship["matches"]
                             
-                        if relationship_name == "LIKES":
-                            pprint(matches)
-                        
                         
                         relationship["count"] = relationship["count"] + 1
                         
@@ -1078,7 +1063,6 @@ class Graph:
                     self.add_edge(left_node, right_node, middle["name"])
         
         pprint(parser["graph"])
-        pprint(relationships)
         print("Return clauses")
         pprint(parser["return_clause"])
         
