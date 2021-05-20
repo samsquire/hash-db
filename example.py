@@ -255,8 +255,9 @@ queries = [
 """merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Love'})""",
 """merge (person:Person {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Thoughts'})""",
 """merge (person:Person {'name': 'Tasya'})-[:LIKES]->(obj:Food {'name': 'Pocky'})""",
-"""merge (person:Person {'name': 'Ideas'})-[:REFERS]->(obj:Person {'name': 'Margaret'})""",
-"""merge (person:Person {'name': 'Thoughts'})-[:REFERS]->(obj:Person {'name': 'John'})""",
+"""merge (person:Post {'name': 'Ideas'})-[:REFERS]->(obj:Person {'name': 'Margaret'})""",
+"""merge (person:Post {'name': 'Thoughts'})-[:REFERS]->(obj:Person {'name': 'John'})""",
+"""merge (person:Post {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Love'})""",
 ]
 
 for query in queries:

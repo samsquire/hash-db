@@ -795,7 +795,11 @@ class Graph:
                             
                         elif "attributes" in planning_node and planning_node["attributes"]:
                             # we need to find a source node based on attributes
-                            matching_nodes = list(self.find_nodes_from_attributes(planning_node["attributes"]))
+                            search = {}
+                            search.update(planning_node["attributes"])
+                            if "label" in planning_node:
+                                search["label"] = planning_node["label"]
+                            matching_nodes = list(self.find_nodes_from_attributes(search))
                             pprint(matching_nodes)
                         elif "label" in planning_node:
                             matching_nodes = self.find_nodes_by_label(planning_node["label"])
