@@ -808,7 +808,7 @@ class Graph:
                                 variable_name = planning_node["variable"]
                                 for matching_node in nodes:
                                     copy = matching_node.copy()
-                                    copy[variable_name] = True
+                                    copy["matches"] = variable_name
                                     yield copy
 
 
@@ -949,9 +949,9 @@ class Graph:
                         
                         variables[planning_node["variable"]]["planning_index"] = planning_index 
                         
-                        if not seen_before:
-                            for matching_node in right_matching_nodes:
-                                matching_node[planning_node["variable"]] = True
+                        # if not seen_before:
+                        for matching_node in right_matching_nodes:
+                            matching_node["matches"] = planning_node["variable"]
                         
                         matching_stack.pop()
                             
@@ -966,7 +966,6 @@ class Graph:
                     variable = None
                     variable_filled = False
                     if "variable" in matching_stack[-1]:
-                        pprint(matching_stack[-1])
                         variable = matching_stack[-1]["variable"]
                         left_hand_variable = variables[variable]["left_hand_variable"]                    
                         variable_filled = variables[variable]["filled"]
@@ -987,6 +986,7 @@ class Graph:
                     
                     
                     for relationship in active_relationships:
+                        inserted = False
                         # if this relationship refers to left hand graph clause
                         # ie match (person:Person)-[:FRIEND_OF]->(person2:Person)
                         # person is a left hand variable because it starts the chain
@@ -1001,13 +1001,11 @@ class Graph:
                             for match in relationship["old_matches"]:
                                 if match:
                                     
-                                    pprint(match[0]) 
                                     if match[0]["planning_index"] == matching_index:
                                         # we need to use this data
                                         
                                         matches = match
                                         found = True
-                                        pprint(matches)
                                         break
                             if not found:
                                 continue
@@ -1034,17 +1032,25 @@ class Graph:
                                     
                                     
                                     if self.directions[relationship_name].get(direction_index, False) == True:
+                                        inserted = True
                                         print("{} -{}-> {}".format(node["name"], relationship_name, self.nodes[item]["name"]))    
-                                        
-                                        relationship["matches"].append({
+                                        forward_relationship = {
                                             "relationship": relationship_name,
-                                            "from_node": node,
-                                            "to_node": copy.deepcopy(self.nodes[item])
-                                        })
-                                  
+                                            "from_node": copy.deepcopy(node),
+                                            "to_node": copy.deepcopy(self.nodes[item]),
+                                            "source_relationship": match
+
+                                        }
+                                        relationship["matches"].append(forward_relationship)
+                                        # if "forward_relationships" not in match:
+                                        #    match["forward_relationships"] = []
+                                        # match["forward_relationships"].append(forward_relationship)
                                         
                                         new_matching_nodes.append(self.nodes[item])
-                                    
+                        if not inserted:
+                            deletions.append(relationship)
+                    for deletion in deletions:
+                        active_relationships.remove(deletion)
                         
                     
                     
@@ -1062,68 +1068,43 @@ class Graph:
                     right_node = right["attributes"]["name"]
                     self.add_edge(left_node, right_node, middle["name"])
         
-        pprint(parser["graph"])
+        # pprint(parser["graph"])
         print("Return clauses")
-        pprint(parser["return_clause"])
+        # pprint(parser["return_clause"])
+
+        def accumulate_variable_forward(output_row, match, seenbefore):
+            seenbefore.append(match)
+            if "from_node" in match and "matches" in match["from_node"]: 
+                output_row[match["from_node"]["matches"]] = match["from_node"]
+            if "matches" in match["to_node"]: 
+                output_row[match["to_node"]["matches"]] = match["to_node"]
+            if "forward_relationships" in match:
+                for forward_relationship in match["forward_relationships"]:
+                    if forward_relationship not in seenbefore:
+                        accumulate_variable_forward(output_row, forward_relationship, seenbefore)
         
+        def accumulate_variable(output_row, match, seenbefore):
+            seenbefore.append(match)
+            if "from_node" in match and "matches" in match["from_node"]: 
+                output_row[match["from_node"]["matches"]] = match["from_node"]
+            if "matches" in match["to_node"]: 
+                output_row[match["to_node"]["matches"]] = match["to_node"]
+            if "source_relationship" in match:
+                accumulate_variable(output_row, match["source_relationship"], seenbefore)
+            # if "forward_relationships" in match:
+            #    for forward_relationship in match["forward_relationships"]:
+            #        if forward_relationship not in seenbefore:
+            #            accumulate_variable_forward(output_row, forward_relationship, seenbefore)
+             
+
+        pprint(relationships)
         if parser["match"]:
-            def getrows():
-                for relation in relationships:
-
-                    output_row = {}
-                    invalid_match = False
-                    for return_clause in parser["return_clause"]:
-                        if return_clause not in output_row:
-                                output_row[return_clause] = []
-                        for matching in relation["matches"]:
-                            if matching["from_node"].get(return_clause):
-                                output_row[return_clause].append(matching["from_node"])
-                            elif matching["to_node"].get(return_clause):
-                                output_row[return_clause].append(matching["to_node"])
-
-
-
-                        for old_matches in reversed(relation["old_matches"][1:]):
-                            found = False
-                            if not old_matches:
-                                invalid_match = True
-                            for old_match in old_matches:
-                                if old_match["from_node"].get(return_clause):
-
-                                    output_row[return_clause].append(old_match["from_node"])
-                                    found = True
-                  
-
-                                elif old_match["to_node"].get(return_clause):
-                                    output_row[return_clause].append(old_match["to_node"])
-                                    found = True
-                            if found:
-                                break
-                    for return_clause in parser["return_clause"]:
-                        if not output_row.get(return_clause, None):
-                            invalid_match = True
-                    if not invalid_match:
+            for relationship in relationships:  
+                for match in relationship["matches"]:
+                    if "inserted" not in match:
+                        output_row = {}
+                        accumulate_variable(output_row, match, [])  
                         yield output_row
-                    else:
-                        print("{} is invalid, not yielding".format(len(relation["old_matches"])))
-
-            outputs = list(getrows())
-            pprint(outputs)
-            output_variables = [] 
-            for variable in parser["return_clause"]:
-                output_variables.append(variable)
-
-            for outputrow in outputs: 
-                streams = []
-                for variable in parser["return_clause"]:
-                    streams.append(outputrow[variable])
-                
-                for streamdata in zip(*streams):
-                    outputrow = {}                     
-                    for index, variable in enumerate(streamdata):
-                        outputrow[output_variables[index]] = variable
-                    yield outputrow
-        
 
 graphs = Graph()
 
