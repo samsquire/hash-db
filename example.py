@@ -280,3 +280,27 @@ response = requests.post(url, data=json.dumps({
 print(url)
 print(response.text)
 
+
+print("query sql")
+statement = """
+insert into items (search, people) values ('blah sentence', 3)
+"""
+url = "http://{}/sql".format(args.server)
+print(statement)
+response = requests.post(url, data=json.dumps({
+    "sql": statement 
+    }))
+print(url)
+print(response.text)
+
+print("query sql")
+statement = """
+select * from items where items.search ~ 'blah | nonsense | notthere' and items.people = 3
+"""
+url = "http://{}/sql".format(args.server)
+print(statement)
+response = requests.post(url, data=json.dumps({
+    "sql": statement 
+    }))
+print(url)
+print(response.text)

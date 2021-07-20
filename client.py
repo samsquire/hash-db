@@ -434,10 +434,17 @@ class SQLExecutor:
         elif self.parser["fts_clause"]:
             # full text search
             table_datas, field_reductions = self.get_tables([["{}.".format(self.parser["table_name"])]])
+
+            table_datas, field_reductions = self.mark_join_table(table_datas, field_reductions, self.parser["table_name"])
+            table_datas = self.rewrite_joins(table_datas)
+
             have_printed_header = False
             header = []
             output_lines = []
             outputs = []
+
+            
+            
             for result in self.process_wheres(field_reductions[0][0]):
                 output_lines = []
                 for field in self.parser["select_clause"]:
@@ -585,7 +592,7 @@ class SQLExecutor:
                     table_data = []
                 
                 reductions.append([table_data, input_data])
-                table_datas.append([("name", table_data, "id", "smaller"), (input_data, "id", "bigger")])
+                table_datas.append([("name", table_data, "id", "smaller"), ("name", input_data, "id", "bigger")])
         
         for restriction, value in where_clause:
             print("Running hash join for where clause value " + str(value))
@@ -606,8 +613,13 @@ class SQLExecutor:
             table_datas.append([("name", table_data, "id", "smaller"), ("name", input_data, "id", "bigger")])
         
         
-        for index, pair in enumerate(table_datas):
-            records = list(self.hash_join(index, table_datas))
+        for mode, table_datas_walk in zip(and_or, enumerate(table_datas)):
+            index, pair = table_datas_walk
+            if mode == "and":
+                records = list(self.hash_join(index, table_datas))
+            if mode  == "or":
+                records.append(list(self.hash_join(index, table_datas)))
+                
                 
         return records
 
@@ -1072,17 +1084,6 @@ class Graph:
         print("Return clauses")
         # pprint(parser["return_clause"])
 
-        def accumulate_variable_forward(output_row, match, seenbefore):
-            seenbefore.append(match)
-            if "from_node" in match and "matches" in match["from_node"]: 
-                output_row[match["from_node"]["matches"]] = match["from_node"]
-            if "matches" in match["to_node"]: 
-                output_row[match["to_node"]["matches"]] = match["to_node"]
-            if "forward_relationships" in match:
-                for forward_relationship in match["forward_relationships"]:
-                    if forward_relationship not in seenbefore:
-                        accumulate_variable_forward(output_row, forward_relationship, seenbefore)
-        
         def accumulate_variable(output_row, match, seenbefore):
             seenbefore.append(match)
             if "from_node" in match and "matches" in match["from_node"]: 
@@ -1091,13 +1092,10 @@ class Graph:
                 output_row[match["to_node"]["matches"]] = match["to_node"]
             if "source_relationship" in match:
                 accumulate_variable(output_row, match["source_relationship"], seenbefore)
-            # if "forward_relationships" in match:
-            #    for forward_relationship in match["forward_relationships"]:
-            #        if forward_relationship not in seenbefore:
-            #            accumulate_variable_forward(output_row, forward_relationship, seenbefore)
              
 
         pprint(relationships)
+        pprint(parser["graph"])
         if parser["match"]:
             for relationship in relationships:  
                 for match in relationship["matches"]:
