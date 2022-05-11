@@ -69,7 +69,7 @@ http://localhost:1005/query_begins/people-100/messages/asc
 
 http://localhost:1005/query_pk_sk_begins/people/messages/desc
 
-## Sort key between hash_values
+## Sort key between values
 
 http://localhost:1005/query_between/people-100/messages-101/messages-105/desc
 
