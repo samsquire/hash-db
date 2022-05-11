@@ -16,6 +16,8 @@ This project demonstrates how simple a database can be. Do not use for serious d
 
 This project uses Google's pygtrie and [Michaeln Nielsen's consistent hashing code](michaelnielsen.org/blog/consistent-hashing/) 
 
+This project uses [converged indexes as designed by Rockset](https://rockset.com/blog/converged-indexing-the-secret-sauce-behind-rocksets-fast-queries/).
+
 # Running
 
 Run `pip install -r requirements.txt`
