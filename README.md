@@ -24,9 +24,9 @@ Run `pip install -r requirements.txt`
 
 Run ./start-all.sh to start server with 3 data nodes. See example.py for the tests that I run as part of development.
 
-# Distributed joins
+# Partially Distributed joins
 
-Data is distributed across the cluster, with rows being on one server each. I haven't gotten around to load balancing the data.
+Data is distributed across the cluster, with rows being on one server each. Join keys stay on every server. I plan to keep joined data together at all times. I haven't gotten around to load balancing the data.
 
 First, register a join with the server:
 
