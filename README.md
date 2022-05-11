@@ -59,7 +59,7 @@ curl -H"Content-type: application/json" -X POST http://localhost:1005/sql --data
 
 ```
 
-# API standard
+# DynamoDB API standard
 
 ## Sort key begins with value
 
