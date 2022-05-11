@@ -102,7 +102,10 @@ curl -H"Content-type: application/json" -X POST http://localhost:1005/cypher --d
 ```
 
 ```
-query = """match (start:Person)-[:FRIEND]->(end:Person), (start)-[:LIKES]->(post:Post), (end)-[:POSTED]->(post) return start, end, post"""
+query = """match (start:Person)-[:FRIEND]->(end:Person),
+ (start)-[:LIKES]->(post:Post), 
+(end)-[:POSTED]->(post)
+ return start, end, post"""
 print(query)
 url = "http://{}/cypher".format(args.server)
 response = requests.post(url, data=json.dumps({
