@@ -1,5 +1,8 @@
 pygtrie==2.3.3
 requests==2.25.1
 urllib3==1.26.4
+gunicorn==20.1.0
+gevent==21.12.0
+Flask==2.1.2
+pytest
 numpy
-
