@@ -16,15 +16,17 @@ This project demonstrates how simple a database can be. Do not use for serious d
 
 This project uses Google's pygtrie and [Michaeln Nielsen's consistent hashing code](michaelnielsen.org/blog/consistent-hashing/) 
 
+This project uses [converged indexes as designed by Rockset](https://rockset.com/blog/converged-indexing-the-secret-sauce-behind-rocksets-fast-queries/).
+
 # Running
 
 Run `pip install -r requirements.txt`
 
 Run ./start-all.sh to start server with 3 data nodes. See example.py for the tests that I run as part of development.
 
-# Distributed joins
+# Partially Distributed joins
 
-Data is distributed across the cluster, with rows being on one server each. I haven't gotten around to load balancing the data.
+Data is distributed across the cluster, with rows being on one server each. Join keys stay on every server. I plan to keep joined data together at all times. I haven't gotten around to load balancing the data.
 
 First, register a join with the server:
 
@@ -59,7 +61,7 @@ curl -H"Content-type: application/json" -X POST http://localhost:1005/sql --data
 
 ```
 
-# API standard
+# DynamoDB API standard
 
 ## Sort key begins with value
 
@@ -69,7 +71,7 @@ http://localhost:1005/query_begins/people-100/messages/asc
 
 http://localhost:1005/query_pk_sk_begins/people/messages/desc
 
-## Sort key between hash_values
+## Sort key between values
 
 http://localhost:1005/query_between/people-100/messages-101/messages-105/desc
 
@@ -102,7 +104,10 @@ curl -H"Content-type: application/json" -X POST http://localhost:1005/cypher --d
 ```
 
 ```
-query = """match (start:Person)-[:FRIEND]->(end:Person), (start)-[:LIKES]->(post:Post), (end)-[:POSTED]->(post) return start, end, post"""
+query = """match (start:Person)-[:FRIEND]->(end:Person),
+ (start)-[:LIKES]->(post:Post), 
+(end)-[:POSTED]->(post)
+ return start, end, post"""
 print(query)
 url = "http://{}/cypher".format(args.server)
 response = requests.post(url, data=json.dumps({

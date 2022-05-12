@@ -57,7 +57,7 @@ def my_hash(key):
   return (int(hashlib.md5(key.encode('utf-8')).hexdigest(),16) % 1000000)/1000000.0
 
 def main():
-  ch = ConsistentHash(2,3)
+  ch = ConsistentHash(4,3)
   print("Format:")
   print("(machine,replica,hash value):")
   for (j,k,h) in ch.hash_tuples: print("(%s,%s,%s)" % (j,k,h))
