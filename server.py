@@ -607,12 +607,12 @@ class SQLExecutor:
                     })
 
                 items.sort(key=itemgetter('key'))
-                for item in all_servers:
-                    for server in servers:
-                        partition_key = "{}.{}".format(insert_table, new_insert_count)
-                        sort_key = item["key"]
-                        lookup_key = partition_key + ":" + sort_key
-                        response = requests.post("http://{}/set/{}/{}".format(server, partition_key, sort_key), data=str(item["value"]))
+                # for item in all_servers:
+                #    for server in servers:
+                #       partition_key = "{}.{}".format(insert_table, new_insert_count)
+                #        sort_key = item["key"]
+                #        lookup_key = partition_key + ":" + sort_key
+                #        response = requests.post("http://{}/set/{}/{}".format(server, partition_key, sort_key), data=str(item["value"]))
 
                 for item in items:
                     partition_key = "{}.{}".format(insert_table, new_insert_count)
@@ -682,37 +682,49 @@ class SQLExecutor:
                             print(statement)
                             data = SQLExecutor(parser).execute()
                             for match in data:
-                                for server in servers:
-                                    server_value = match[1]
-                                    print("Data from {}, we are inserting {} into server {}".format(server, server_value, servers[machine_index]))
-                                    print("{} {}".format(left_table, right_table))
-                                    response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
-                                            server,
-                                            right_table, server_value,
-                                            right_table,
-                                            server_value,
-                                            right_field), data=str(search_value)) 
-                                    response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
-                                            servers[machine_index],
-                                            right_table, server_value,
-                                            right_table,
-                                            server_value,
-                                            "id"), data=server_value) 
-                                    if server != servers[machine_index]:
-                                        # new_key = "R.{}.{}.{}".format(insert_table, new_insert_count, field)
-                                        response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
-                                                server,
-                                                left_table, new_insert_count,
-                                                left_table,
-                                                new_insert_count,
-                                                left_field), data=str(search_value)) 
-                                        response = requests.post("http://{}/set/{}.{}/R.{}.{}.{}".format(
-                                                server,
-                                                left_table, new_insert_count,
-                                                left_table,
-                                                new_insert_count,
-                                                "id"), data=str(new_insert_count)) 
-                                    # have to create a key on 
+                                # Remember left table is the join key
+                                # Right table is the table we're trying to insert data into
+                                server_value = match[1]
+                                print("{} {}".format(left_table, right_table))
+                                partition_key = "{}.{}".format(right_table, server_value)
+
+                                # first we insert data where it belongs
+                                partition_key = "{}.{}".format(left_table, new_insert_count)
+                                machine_index = hashes["hashes"].get_machine(partition_key)
+                                server = servers[machine_index] 
+                                
+                                print("Data from {}, we are inserting {} into server {}".format(server, server_value, servers[machine_index]))
+                                response = requests.post("http://{}/set/{}/R.{}.{}.{}".format(
+                                        server,
+                                        partition_key,
+                                        right_table,
+                                        server_value,
+                                        right_field), data=str(search_value)) 
+                                response = requests.post("http://{}/set/{}/R.{}.{}.{}".format(
+                                        server,
+                                        partition_key,
+                                        right_table,
+                                        server_value,
+                                        "id"), data=server_value) 
+
+                                # Insert the data on the joined servers
+                                server = match[0]
+                                print(server)
+                                print("Data from {}, we are inserting {} into server {}".format(server, server_value, servers[machine_index]))
+                                # new_key = "R.{}.{}.{}".format(insert_table, new_insert_count, field)
+                                # response = requests.post("http://{}/set/{}/R.{}.{}.{}".format(
+                                #         server,
+                                #         partition_key,
+                                #         left_table,
+                                #         new_insert_count,
+                                #         left_field), data=str(search_value)) 
+                                # response = requests.post("http://{}/set/{}/R.{}.{}.{}".format(
+                                #         server,
+                                #         partition_key,
+                                #         left_table,
+                                #         new_insert_count,
+                                #         "id"), data=str(new_insert_count)) 
+                                # have to create a key on 
 
             
         elif self.parser.group_by:
@@ -741,11 +753,13 @@ class SQLExecutor:
                 print(output_line)
                 
         elif self.parser.join_clause:
+            records = []
+            # server = random.choice(servers)
+            for server in servers:
+                records.extend(json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
+                    "parser": self.parser.__dict__
+                    })).text))
 
-            server = random.choice(servers)
-            records = json.loads(requests.post("http://{}/sql".format(server), data=json.dumps({ 
-                "parser": self.parser.__dict__
-                })).text)
 
             print(records)
 
