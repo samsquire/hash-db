@@ -55,7 +55,7 @@ Worker().start()
 def bootstrap(port):
     servers.append(request.remote_addr + ":" + port)
     old_hashes = hashes["hashes"]
-    hashes["hashes"] = ConsistentHash(num_machines=len(servers), num_replicas=3)
+    hashes["hashes"] = ConsistentHash(num_machines=len(servers), num_replicas=1)
     new_index = len(servers)  - 1
     bootstrapped_keys = {}
     print("Uploading missing data")
