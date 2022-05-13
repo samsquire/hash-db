@@ -26,7 +26,7 @@ Run ./start-all.sh to start server with 3 data nodes. See example.py for the tes
 
 # Distributed joins
 
-Data is distributed across the cluster, with rows being on one server each. Join keys stay on every server. I plan to keep joined data together at all times. I haven't gotten around to load balancing the data.
+Data is distributed across the cluster, with rows being on one server each. Join keys are inserted on matching records upon insert. It's not very efficient as it does the join on every insert to maintain the join. I plan to keep joined data together at all times. I haven't gotten around to load balancing the data.
 
 First, register a join with the server:
 
