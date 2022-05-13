@@ -33,15 +33,15 @@ class Tree():
     def delete(self, value):
         next_value = self
         while True:
-            if value < next_value.value:  
+            if value < next_value.value:
                 if next_value and next_value.left.value == value:
                     next_value.left = None
                     print("Found item to delete")
                     break
                 else:
                     next_value = next_value.left
-                
-            if value > next_value.value:  
+
+            if value > next_value.value:
                 if next_value.right and next_value.right.value == value:
                     next_value.right = None
                     print("Found item to delete")
@@ -50,7 +50,6 @@ class Tree():
                     next_value = next_value.right
             if next_value == None:
                 break
-        
 
 class PartitionTree():
     def __init__(self, value, partition_tree):
@@ -76,7 +75,6 @@ class PartitionTree():
         return self
 
     def walk(self, less_than, stop):
-
         if self.left:
             yield from self.left.walk(less_than, stop)
         if less_than <= self.value and self.value <= stop:
