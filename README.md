@@ -118,3 +118,24 @@ print(url)
 print(response.text)
 
 ```
+
+# How SQL is executed
+
+Once SQL is parsed, the query and join is turned into a stream of operators. The underlying storage is a keyvalue database or HashMap. Eventually if we implement physic storage this would be a keyvalue backend such as RocksDB which provides efficient iterators of which we need range scans for this database to be efficient. We use a [rockset converged index](https://rockset.com/blog/converged-indexing-the-secret-sauce-behind-rocksets-fast-queries/).
+
+Keyvalues are stored for each column of a table. There is no create table statement.
+
+For example the table people (first_name, age, introduction) is stored as the following keyvalues -
+
+```
+R.people.0.name
+R.people.0.age
+R.people.0.introduction
+C.people.name.0
+C.people.age.0
+C.people.introduction.0
+```
+
+Based on the joins that need to be done, we create a list of join operators.
+
+To execute a query we take two stream operators at a time and join them together on a key 
