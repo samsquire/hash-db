@@ -136,6 +136,17 @@ C.people.age.0
 C.people.introduction.0
 ```
 
-Based on the joins that need to be done, we create a list of join operators.
+Based on the joins that need to be done, we create a list of tuple pairs of the joins to be done.
 
-To execute a query we take two stream operators at a time and join them together on a key 
+This is a tuple of a data source (table_name, iterable collection, field size) and they are arranged into pairs.
+ 
+If there is 2 joins there shall be 2 join operation of 2 pairs. The second join statement iterable collection refers to the result of the PREVIOUS join.
+
+A special collection name of "previous" means "use the result of the last join as the joined data for this join.
+
+("People", people table, Id, larger), ("Descriptions", descriptions table iterable, "people_id", larger)
+("previous", previous result, people_id, larger), ("Search", search table iterable, people_id"),
+
+
+
+
