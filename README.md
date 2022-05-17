@@ -121,7 +121,7 @@ print(response.text)
 
 # How SQL is executed
 
-Once SQL is parsed, the query and join is turned into a stream of operators. The underlying storage is a keyvalue database or HashMap. Eventually if we implement physic storage this would be a keyvalue backend such as RocksDB which provides efficient iterators of which we need range scans for this database to be efficient. We use a [rockset converged index](https://rockset.com/blog/converged-indexing-the-secret-sauce-behind-rocksets-fast-queries/).
+Once SQL is parsed, the query and join is turned into a stream of operators. The underlying storage is a keyvalue database or python dictionary which is a form of hashmap. Eventually if we implement physical storage this would be a keyvalue backend such as RocksDB which provides efficient iterators of which we need range scans for this database to be efficient. We use a [rockset converged index](https://rockset.com/blog/converged-indexing-the-secret-sauce-behind-rocksets-fast-queries/).
 
 Keyvalues are stored for each column of a table. There is no create table statement.
 
@@ -147,12 +147,13 @@ This is a tuple of a data source (table_name, iterable collection, field size) a
  
 If there is 2 joins there shall be 2 join operation of 2 pairs. The second join statement iterable collection refers to the result of the PREVIOUS join.
 
-A special collection name of "previous" means "use the result of the last join as the joined data for this join.
+A special collection name of "previous" means "use the result of the last join as the joined data for this join".
 
 ```
 ("People", people table, Id, larger), ("Descriptions", descriptions table iterable, "people_id", larger)
 ("previous", previous result, people_id, larger), ("Search", search table iterable, people_id"),
 ```
 
+Hash join takes items from each collection left side and right side that have matching field values.
 
 
