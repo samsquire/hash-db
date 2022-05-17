@@ -119,9 +119,9 @@ print(response.text)
 
 ```
 
-# How SQL is executed
+# Data storage
 
-Once SQL is parsed, the query and join is turned into a stream of operators. The underlying storage is a keyvalue database or python dictionary which is a form of hashmap. Eventually if we implement physical storage this would be a keyvalue backend such as RocksDB which provides efficient iterators of which we need range scans for this database to be efficient. We use a [rockset converged index](https://rockset.com/blog/converged-indexing-the-secret-sauce-behind-rocksets-fast-queries/).
+. The underlying storage is a keyvalue database or python dictionary which is a form of hashmap. Eventually if we implement physical storage this would be a keyvalue backend such as RocksDB which provides efficient iterators of which we need range scans for this database to be efficient. We use a [rockset converged index](https://rockset.com/blog/converged-indexing-the-secret-sauce-behind-rocksets-fast-queries/).
 
 Keyvalues are stored for each column of a table. There is no create table statement.
 
@@ -140,6 +140,10 @@ S.people.introduction.<introduction>.0
 ```
 
 The S keyvalues are indexed used for WHERE clauses. They allow efficient retrieval of a row that matches the predicate by a keyvalue scan of keys that begin with the S.table name.field name.<field value>
+
+# How SQL is executed
+
+Once SQL is parsed, the query and join is turned into a stream of operators
 
 Based on the joins that need to be done, we create a list of tuple pairs of the joins to be done.
 
