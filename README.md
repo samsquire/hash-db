@@ -134,7 +134,12 @@ R.people.0.introduction
 C.people.name.0
 C.people.age.0
 C.people.introduction.0
+S.people.name.<name>.0
+S.people.age.<age>.0
+S.people.introduction.<introduction>.0
 ```
+
+The S keyvalues are indexed used for WHERE clauses. They allow efficient retrieval of a row that matches the predicate by a keyvalue scan of keys that begin with the S.table name.field name.<field value>
 
 Based on the joins that need to be done, we create a list of tuple pairs of the joins to be done.
 
@@ -144,9 +149,10 @@ If there is 2 joins there shall be 2 join operation of 2 pairs. The second join 
 
 A special collection name of "previous" means "use the result of the last join as the joined data for this join.
 
+```
 ("People", people table, Id, larger), ("Descriptions", descriptions table iterable, "people_id", larger)
 ("previous", previous result, people_id, larger), ("Search", search table iterable, people_id"),
-
+```
 
 
 
