@@ -5,7 +5,7 @@ This is an experimental project.
 * You can create a basic database with a hash table and a prefix trie. See hash-db.py It's a very small database.
 * This reflects dynamodb style querying.
 * You can create a basic distributed database with consistent hashing. See client.py and server.py. Data is rebalanced onto nodes as new servers are added.
-* SQL is parsed on the server and work distributed to data nodes. [Please see this blog post](https://elaeis.cloud-angle.com/?p=183). For how distributed join works: [see this blog post](https://elaeis.cloud-angle.com/?p=192).
+* SQL is parsed on the server and work distributed to data nodes. Data nodes store a subset of the data in the database.
 * Cypher is parsed on the server and distributed to a data node for processing. Graphs only live on one data node at a time. I haven't worked out how to distribute their processing yet.
 
 This project demonstrates how simple a database can be. Do not use for serious data, it's only stored in memory and there is no persistence.
@@ -24,9 +24,9 @@ Run `pip install -r requirements.txt`
 
 Run ./start-all.sh to start server with 3 data nodes. See example.py for the tests that I run as part of development.
 
-# Partially Distributed joins
+# Distributed joins
 
-Data is distributed across the cluster, with rows being on one server each. Join keys stay on every server. I plan to keep joined data together at all times. I haven't gotten around to load balancing the data.
+Data is distributed across the cluster, with rows being on one server each. Join keys are inserted on matching records upon insert. It's not very efficient as it does the join on every insert to maintain the join. I plan to keep joined data together at all times. I haven't gotten around to load balancing the data.
 
 First, register a join with the server:
 
@@ -118,3 +118,46 @@ print(url)
 print(response.text)
 
 ```
+
+# Data storage
+
+. The underlying storage is a keyvalue database or python dictionary which is a form of hashmap. Eventually if we implement physical storage this would be a keyvalue backend such as RocksDB which provides efficient iterators of which we need range scans for this database to be efficient. We use a [rockset converged index](https://rockset.com/blog/converged-indexing-the-secret-sauce-behind-rocksets-fast-queries/).
+
+Keyvalues are stored for each column of a table. There is no create table statement.
+
+For example the table people (first_name, age, introduction) is stored as the following keyvalues -
+
+```
+R.people.0.name
+R.people.0.age
+R.people.0.introduction
+C.people.name.0
+C.people.age.0
+C.people.introduction.0
+S.people.name.<name>.0
+S.people.age.<age>.0
+S.people.introduction.<introduction>.0
+```
+
+The S keyvalues are indexed used for WHERE clauses. They allow efficient retrieval of a row that matches the predicate by a keyvalue scan of keys that begin with the S.table name.field name.<field value>
+
+# How SQL is executed
+
+Once SQL is parsed, the query and join is turned into a stream of operators
+
+Based on the joins that need to be done, we create a list of tuple pairs of the joins to be done.
+
+This is a tuple of a data source (table_name, iterable collection, field size) and they are arranged into pairs.
+ 
+If there is 2 joins there shall be 2 join operation of 2 pairs. The second join statement iterable collection refers to the result of the PREVIOUS join.
+
+A special collection name of "previous" means "use the result of the last join as the joined data for this join".
+
+```
+("People", people table, Id, larger), ("Descriptions", descriptions table iterable, "people_id", larger)
+("previous", previous result, people_id, larger), ("Search", search table iterable, people_id"),
+```
+
+Hash join takes items from each collection left side and right side that have matching field values.
+
+
