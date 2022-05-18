@@ -67,7 +67,7 @@ class CypherParser():
             if self.end and self.last_char != ")" and self.last_char != "\n":
                 identifier += self.last_char
             
-            return identifier
+            return identifier.lower()
     
         if self.last_char == "=":
             self.last_char = self.getchar()
