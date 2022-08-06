@@ -58,7 +58,10 @@ app = Flask(__name__)
 
 @app.route("/get/<lookup_key>", methods=["POST"])
 def get(lookup_key):
-    return make_response(str(data[lookup_key]))
+	print("in get")
+	if lookup_key in data:
+		return make_response(str(data[lookup_key]))
+	return make_response("")
 
 @app.route("/set/<partition_key>/<sort_key>", methods=["POST"])
 def set_value(partition_key, sort_key):

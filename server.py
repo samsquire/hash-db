@@ -167,6 +167,85 @@ def both_between(from_partition_key, to_partition_key, from_query, to_query, sor
     return Response(asstring(sorted(items(from_partition_key, to_partition_key, from_query, to_query),
         key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/plain")
 
+def object_exists(objects, key):
+	return key in objects["object_key_lookup"]
+
+def lookup_object_index(objects, key):
+	if key in objects["object_key_lookup"]:
+		return objects["object_key_lookup"][key]["index"]
+	return None
+	
+def append_new_object(root, path, kind):
+	print("appending to object")
+	new_index = len(root["objects"])
+	root["objects"].append({
+		"index": new_index,
+		"kind": kind,	
+		"name": path
+	})	
+	root["object_key_lookup"][path] = {
+		"index": new_index
+	}
+
+def create_path(path, key):
+	return "{}.{}".format(path, key)
+
+def create_list_path(path, key):
+	return "{}.{}[]".format(path, key)
+
+def handle_object(root, key, value, path):
+	print("handling object")
+	if isinstance(value, dict):
+		decouple_object(root, value)
+	if isinstance(value, str):
+		print("found string")
+		append_new_object(root, create_path(path, key), "string")
+	if isinstance(value, int):
+		print("found int")
+		append_new_object(root, create_path(path, key), "int")
+	if isinstance(value, list):
+		print("found list")
+		for item in value:
+			decouple_object(root, item, create_list_path(path, key))
+
+def decouple_object(root, document, path=""):
+	if isinstance(document, dict):
+		for key, value in document.items():
+			handle_object(root, key, value, path)
+
+	elif isinstance(document, list):
+		for value in document:
+			handle_object(root, "", value, path)
+				
+
+					
+
+@app.route("/save/<identifier>", methods=["POST"])
+def save_document(identifier):
+	print("json storage server")
+	document = json.loads(request.data)
+	machine_index = hashes["hashes"].get_machine(identifier)
+	server = servers[machine_index]
+	lookup_key = "documents.objects"
+	response = requests.post("http://{}/get/{}".format(server, lookup_key))
+	print(response.text)
+	if not response.text:	
+		objects = {
+			"objects": [],
+			"object_key_lookup": {}
+		}
+	else:
+		objects = response.json()
+	object_count = len(objects["objects"])
+	decouple_object(objects, document)	
+	partition_key = "DDB"
+	sort_key = lookup_key	
+
+	print(objects)	
+	response = requests.post("http://{}/set/{}/{}".format(server, partition_key, sort_key), data=json.dumps(objects))
+
+	return json.dumps(objects)	
+
 class Parser():
     def __init__(self):
         self.last_char = " "
