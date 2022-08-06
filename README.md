@@ -22,7 +22,9 @@ This project uses [converged indexes as designed by Rockset](https://rockset.com
 
 Run `pip install -r requirements.txt`
 
-Run ./start-all.sh to start server with 3 data nodes. See example.py for the tests that I run as part of development.
+Create a virtualvenv with `virtualenv venv`
+
+Run `./start-all.sh` to start server with 3 data nodes and run the tests. See example.py for the tests that I run as part of development.
 
 # Distributed joins
 
