@@ -304,3 +304,13 @@ response = requests.post(url, data=json.dumps({
     }))
 print(url)
 print(response.text)
+
+print("json storage")
+url = "http://{}/save/1".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "name": "Sam Squire", 
+	"age": 32,
+	"hobbies": [{"name": "God"}, {"name": "databases"}, {"name": "computers"}]
+    }))
+print(response.text)
+
