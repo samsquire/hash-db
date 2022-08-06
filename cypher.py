@@ -21,6 +21,9 @@ class CypherParser():
         
         return char
         
+    def getkeyword(self):
+        return self.gettok().lower()
+
     def gettok(self):
         while (self.end == False and (self.last_char == " " or self.last_char == "\n")):
             self.last_char = self.getchar()
@@ -61,7 +64,7 @@ class CypherParser():
                 identifier = identifier + self.last_char
                 self.last_char = self.getchar()
             
-            if self.end and self.last_char != ")":
+            if self.end and self.last_char != ")" and self.last_char != "\n":
                 identifier += self.last_char
             
             return identifier
@@ -116,7 +119,7 @@ class CypherParser():
 # RETURN actor.name
     def parse(self, statement):
         self.statement = statement
-        token = self.gettok()
+        token = self.getkeyword()
         if token == "match":
             self.parse_match()
         elif token == "merge":
@@ -209,7 +212,7 @@ class CypherParser():
                     print("begin attributes " + token)
                     closebracket = self.gettok()
             
-                token = self.gettok()
+                token = self.getkeyword()
                 print("parsed a label " + token)
                 if token == "return":
                     self.parse_remainder(token)
@@ -257,7 +260,7 @@ class CypherParser():
                     print("begin attributes " + token)
                     closebracket = self.gettok()
             
-                token = self.gettok()
+                token = self.getkeyword()
                 print("parsed a label " + token)
                 if token == "return":
                     self.parse_remainder(token)

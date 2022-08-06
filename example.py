@@ -238,69 +238,69 @@ print(url)
 print(response.text)
 
 
-# queries = [
-# """merge (person:Person {'name': 'Samuel'})-[:FRIEND]->(tasya:Person {'name': 'Tasya'})""",
-# """merge (person:Person {'name': 'Tasya'})-[:FRIEND]->(obj:Person {'name': 'Samuel'})""",
-# """merge (person:Person {'name': 'Samuel'})-[:FRIEND]->(obj:Person {'name': 'Simon'})""",
-# """merge (person:Person {'name': 'Simon'})-[:FRIEND]->(obj:Person {'name': 'Samuel'})""",
-# """merge (person:Person {'name': 'Samuel'})-[:FRIEND]->(obj:Person {'name': 'John'})""",
-# """merge (person:Person {'name': 'Simon'})-[:FRIEND]->(obj:Person {'name': 'Sally'})""",
-# """merge (person:Person {'name': 'Sally'})-[:FRIEND]->(obj:Person {'name': 'Simon'})""",
-# """merge (person:Person {'name': 'Tasya'})-[:FRIEND]->(obj:Person {'name': 'Margaret'})""",
-# """merge (person:Person {'name': 'Margaret'})-[:FRIEND]->(obj:Person {'name': 'Tasya'})""",
-# """merge (person:Person {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Ideas'})""",
-# """merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Ideas'})""",
-# """merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Lamentations'})""",
-# """merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Love'})""",
-# """merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Thoughts'})""",
-# """merge (person:Person {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Thoughts'})""",
-# """merge (person:Person {'name': 'Tasya'})-[:LIKES]->(obj:Food {'name': 'Pocky'})""",
-# """merge (person:Post {'name': 'Ideas'})-[:REFERS]->(obj:Person {'name': 'Margaret'})""",
-# """merge (person:Post {'name': 'Thoughts'})-[:REFERS]->(obj:Person {'name': 'John'})""",
-# """merge (person:Post {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Love'})""",
-# ]
-# 
-# for query in queries:
-#     print(query)
-#     url = "http://{}/cypher".format(args.server)
-#     response = requests.post(url, data=json.dumps({
-#         "key": "1",
-#         "cypher": query 
-#         }))
-#     print(url)
-#     print(response.text)
-# 
-# query = """match (start:Person)-[:FRIEND]->(end:Person), (start)-[:LIKES]->(post:Post), (end)-[:POSTED]->(post:Post), (post:Post)-[:REFERS]->(person:Person) return start, end, post, person"""
-# print(query)
-# url = "http://{}/cypher".format(args.server)
-# response = requests.post(url, data=json.dumps({
-#     "key": "1",
-#     "cypher": query 
-#     }))
-# print(url)
-# print(response.text)
-# 
-# 
-# print("query sql")
-# statement = """
-# insert into items (search, people) values ('blah sentence', 3)
-# """
-# url = "http://{}/sql".format(args.server)
-# print(statement)
-# response = requests.post(url, data=json.dumps({
-#     "sql": statement 
-#     }))
-# print(url)
-# print(response.text)
-# 
-# print("query sql")
-# statement = """
-# select * from items where items.search ~ 'blah | nonsense | notthere' and items.people = 3
-# """
-# url = "http://{}/sql".format(args.server)
-# print(statement)
-# response = requests.post(url, data=json.dumps({
-#     "sql": statement 
-#     }))
-# print(url)
-# print(response.text)
+queries = [
+"""merge (person:Person {'name': 'Samuel'})-[:FRIEND]->(tasya:Person {'name': 'Tasya'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:FRIEND]->(obj:Person {'name': 'Samuel'})""",
+"""merge (person:Person {'name': 'Samuel'})-[:FRIEND]->(obj:Person {'name': 'Simon'})""",
+"""merge (person:Person {'name': 'Simon'})-[:FRIEND]->(obj:Person {'name': 'Samuel'})""",
+"""merge (person:Person {'name': 'Samuel'})-[:FRIEND]->(obj:Person {'name': 'John'})""",
+"""merge (person:Person {'name': 'Simon'})-[:FRIEND]->(obj:Person {'name': 'Sally'})""",
+"""merge (person:Person {'name': 'Sally'})-[:FRIEND]->(obj:Person {'name': 'Simon'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:FRIEND]->(obj:Person {'name': 'Margaret'})""",
+"""merge (person:Person {'name': 'Margaret'})-[:FRIEND]->(obj:Person {'name': 'Tasya'})""",
+"""merge (person:Person {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Ideas'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Ideas'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Lamentations'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Love'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:POSTED]->(obj:Post {'name': 'Thoughts'})""",
+"""merge (person:Person {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Thoughts'})""",
+"""merge (person:Person {'name': 'Tasya'})-[:LIKES]->(obj:Food {'name': 'Pocky'})""",
+"""merge (person:Post {'name': 'Ideas'})-[:REFERS]->(obj:Person {'name': 'Margaret'})""",
+"""merge (person:Post {'name': 'Thoughts'})-[:REFERS]->(obj:Person {'name': 'John'})""",
+"""merge (person:Post {'name': 'Samuel'})-[:LIKES]->(obj:Post {'name': 'Love'})""",
+]
+
+for query in queries:
+    print(query)
+    url = "http://{}/cypher".format(args.server)
+    response = requests.post(url, data=json.dumps({
+        "key": "1",
+        "cypher": query 
+        }))
+    print(url)
+    print(response.text)
+
+query = """match (start:Person)-[:FRIEND]->(end:Person), (start)-[:LIKES]->(post:Post), (end)-[:POSTED]->(post:Post), (post:Post)-[:REFERS]->(person:Person) return start, end, post, person"""
+print(query)
+url = "http://{}/cypher".format(args.server)
+response = requests.post(url, data=json.dumps({
+    "key": "1",
+    "cypher": query 
+    }))
+print(url)
+print(response.text)
+
+
+print("query sql")
+statement = """
+insert into items (search, people) values ('blah sentence', 3)
+"""
+url = "http://{}/sql".format(args.server)
+print(statement)
+response = requests.post(url, data=json.dumps({
+    "sql": statement 
+    }))
+print(url)
+print(response.text)
+
+print("query sql")
+statement = """
+select * from items where items.search ~ 'blah | nonsense | notthere' and items.people = 3
+"""
+url = "http://{}/sql".format(args.server)
+print(statement)
+response = requests.post(url, data=json.dumps({
+    "sql": statement 
+    }))
+print(url)
+print(response.text)
