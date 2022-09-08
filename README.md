@@ -97,6 +97,53 @@ print(url)                                                                      
 print(response.text) 
 ```
 
+## Document storage
+
+hash-db is kind of multimodel. The data that is inserted as a document is also available to the SQL query engine. I am yet to implement joins though.
+
+In effect we can insert documents and they are decomposed into keyvalues, which in theory can be joined efficiently, even though they are part of a document.
+
+```
+print("json storage")                                                                                                                                                                        
+url = "http://{}/save/people/1".format(args.server)                                                                                                                                          
+response = requests.post(url, data=json.dumps({                                                                                                                                              
+    "name": "Sam Squire",                                                                                                                                                                    
+    "age": 32,                                                                                                                                                                               
+    "hobbies": [{"name": "God"}, {"name": "databases"}, {"name": "computers"}]                                                                                                               
+    }))                                                                                                                                                                                      
+print(response.text)                                                                                                                                                                         
+                                                                                                                                                                                             
+print("json retrieve")                                                                                                                                                                       
+url = "http://{}/documents/people/1".format(args.server)                                                                                                                                     
+response = requests.get(url)                                                                                                                                                                 
+print(response.text)                                                                                                                                                                         
+                                                                                                                                                                                             
+                                                                                                                                                                                             
+                                                                                                                                                                                             
+print("query documents by sql")                                                                                                                                                              
+statement = """                                                                                                                                                                              
+select * from people where people.~hobbies[]~name = 'God'"""                                                                                                                                 
+url = "http://{}/sql".format(args.server)                                                                                                                                                    
+print(statement)                                                                                                                                                                             
+response = requests.post(url, data=json.dumps({                                                                                                                                              
+    "sql": statement                                                                                                                                                                         
+    }))                                                                                                                                                                                      
+print(url)                                                                                                                                                                                   
+print(response.text)                                                                                                                                                                         
+                                                                                                                                                                                             
+print("query multiple hobbies documents by sql")                                                                                                                                             
+statement = """                                                                                                                                                                              
+select people.~hobbies[]~name from people"""                                                                                                                                                 
+url = "http://{}/sql".format(args.server)                                                                                                                                                    
+print(statement)                                                                                                                                                                             
+response = requests.post(url, data=json.dumps({                                                                                                                                              
+    "sql": statement                                                                                                                                                                         
+    }))                                                                                                                                                                                      
+print(url)                                                                                                                                                                                   
+print(response.text)  
+
+```
+
 ## Cypher interface
 
 For simplicity, we only support Cypher triples. That is, (node)-[:relationship]-(node) separated by commas. But the sum of the triples can produce the same output as if the Cypher was all in one line.
