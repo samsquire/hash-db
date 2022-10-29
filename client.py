@@ -63,6 +63,117 @@ def get(lookup_key):
 		return make_response(str(data[lookup_key]))
 	return make_response("")
 
+def add_component(objects, previous_component, this_component, named_components, data, insertion):
+    desired_key = named_components[1:]
+    current_object = data
+    part_so_far = ""
+    for part in desired_key:
+            
+        if part in current_object:
+            current_object = current_object[part]
+        else:
+            print("Part doesn't exist in object, creating")
+            kind = objects["objects"][objects["object_key_lookup"]["{}.{}".format(part_so_far, part)]["index"]]["kind"]
+            print(part, "is a ", kind)
+            if kind == "list":
+                current_object[part] = []
+            if isinstance(current_object, dict) and kind == "string":
+                current_object[part] = insertion
+            if isinstance(current_object, list) and part.isdigit():
+                current_size = len(current_object)
+                extension = int(part) - current_size + 1
+                print("need to extend by ", extension)
+                current_object.extend([None] * extension)
+                part = int(part)
+                
+            if isinstance(current_object, list) and kind == "dict":
+                part = int(part)
+                current_object[part] = {}
+            if isinstance(current_object, list) and kind == "string":
+                part = int(part) 
+                current_object[int(part)] = insertion
+            if isinstance(current_object, dict) and (kind == "string" or kind == "int"):
+                current_object[part] = insertion
+
+            current_object = current_object[part]
+        part_so_far = part_so_far + "." + str(part)
+    
+    
+     
+
+def populate_data(objects, sort_key, root, data, insertion):
+    sort_key_components = sort_key.split(":")
+    keyspace = sort_key_components[1].split(".")
+    previous_component = None 
+    pprint(objects)
+    for component in keyspace:
+        as_int = int(component)
+        this_component = objects["objects"][as_int]
+        print(this_component)
+        if this_component:
+            named_components = this_component["name"].split(".")
+            add_component(objects,  \
+                    previous_component, \
+                    this_component, \
+                    named_components, \
+                    data, insertion)
+            previous_component = objects["objects"][as_int]
+        else:
+            print(as_int, "doesn't exist")
+    return data
+    
+
+@app.route("/documents/<collection>/<identifier>", methods=["GET"])
+def get_document(collection, identifier):
+    lookup_key = "DDB:documents.objects"
+    objects = json.loads(data.get(lookup_key))
+    pprint(objects)
+    if not objects:   
+        objects = {
+            "objects": [],
+            "object_key_lookup": {}
+        }
+
+    hydrated = {}
+    query = "D.{}.{}".format(collection, identifier)
+    for sort_key, value in sort_index.iteritems(prefix=query):
+        lookup_key = query + ":" + value
+        populate_data(objects, sort_key, hydrated, hydrated, data[lookup_key])
+
+    return json.dumps(hydrated)
+
+@app.route("/save/<collection>/<identifier>", methods=["POST"])
+def save_document(collection, identifier):
+    print("indexing document")
+    created_keys = json.loads(request.data.decode('utf-8'))
+    partition_key = "D.{}.{}".format(collection, identifier) 
+    for item in created_keys:   
+        key = item["key"] 
+        value = item["value"]
+        sort_key = key
+        lookup_key = lookup_key = partition_key + ":" + sort_key
+        data[lookup_key] = value
+        if lookup_key in indexed:
+            return make_response(str(response.status_code), response.status_code)
+
+        indexed[lookup_key] = True
+        sort_index[partition_key + ":" + sort_key] = sort_key
+        if sort_key not in sort_index:
+            sort_index[sort_key] = pygtrie.CharTrie()
+        sort_index[sort_key][partition_key] = partition_key + ":" + sort_key
+        if partition_key not in between_index:
+            between_index[partition_key] = Tree("", None, None)
+        if partition_key not in partition_trees:
+            partition_tree = both_between_index.insert(partition_key, Tree("", None, None))
+            partition_trees[partition_key] = partition_tree
+        between_index[partition_key].insert(sort_key, partition_key, partition_key + ":" + sort_key)
+        partition_trees[partition_key].partition_tree.insert(sort_key, partition_key, partition_key + ":" + sort_key)
+
+        sql_index[sort_key] = lookup_key
+        
+
+    return make_response("")
+
 @app.route("/set/<partition_key>/<sort_key>", methods=["POST"])
 def set_value(partition_key, sort_key):
 

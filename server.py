@@ -168,83 +168,167 @@ def both_between(from_partition_key, to_partition_key, from_query, to_query, sor
         key=lambda x: x[0], reverse=sort_mode == "desc")), mimetype="text/plain")
 
 def object_exists(objects, key):
-	return key in objects["object_key_lookup"]
+    return key in objects["object_key_lookup"]
 
 def lookup_object_index(objects, key):
-	if key in objects["object_key_lookup"]:
-		return objects["object_key_lookup"][key]["index"]
-	return None
-	
+    if key in objects["object_key_lookup"]:
+        return objects["object_key_lookup"][key]["index"]
+    return None
+    
 def append_new_object(root, path, kind):
-	print("appending to object")
-	new_index = len(root["objects"])
-	root["objects"].append({
-		"index": new_index,
-		"kind": kind,	
-		"name": path
-	})	
-	root["object_key_lookup"][path] = {
-		"index": new_index
-	}
+    print("appending to object")
+    new_index = len(root["objects"])
+    root["objects"].append({
+        "index": new_index,
+        "kind": kind,   
+        "name": path
+    })  
+    root["object_key_lookup"][path] = {
+        "index": new_index
+    }
 
 def create_path(path, key):
-	return "{}.{}".format(path, key)
+    return "{}.{}".format(path, key)
 
-def create_list_path(path, key):
-	return "{}.{}[]".format(path, key)
+def create_list_path(path, key, index):
+    return "{}.{}.{}".format(path, key, index)
 
 def handle_object(root, key, value, path):
-	print("handling object")
-	if isinstance(value, dict):
-		decouple_object(root, value)
-	if isinstance(value, str):
-		print("found string")
-		append_new_object(root, create_path(path, key), "string")
-	if isinstance(value, int):
-		print("found int")
-		append_new_object(root, create_path(path, key), "int")
-	if isinstance(value, list):
-		print("found list")
-		for item in value:
-			decouple_object(root, item, create_list_path(path, key))
+    print("handling object")
+    if isinstance(value, dict):
+        append_new_object(root, create_path(path, key), "dict")
+        decouple_object(root, value)
+        return "dict"
+    if isinstance(value, str):
+        print("found string")
+        append_new_object(root, create_path(path, key), "string")
+        return "string"
+    if isinstance(value, int):
+        print("found int")
+        append_new_object(root, create_path(path, key), "int")
+        return "int"
+    if isinstance(value, list):
+        print("found list")
+        
+        append_new_object(root, create_path(path, key), "list")
+        for index, item in enumerate(value):
+            new_kind = decouple_object(root, item, create_list_path(path, key, index))
+            append_new_object(root, create_list_path(path, key, index), new_kind)
+        return "list"
 
 def decouple_object(root, document, path=""):
-	if isinstance(document, dict):
-		for key, value in document.items():
-			handle_object(root, key, value, path)
+    if isinstance(document, dict):
+        for key, value in document.items():
+            handle_object(root, key, value, path)
+        return "dict"
 
-	elif isinstance(document, list):
-		for value in document:
-			handle_object(root, "", value, path)
-				
+    elif isinstance(document, list):
+        for value in document:
+            handle_object(root, "", value, path)
+        return "list"
+                
 
-					
+def handle_create_keys_value(key, value, objects, path, parts, named_parts, is_list=False):
+    if isinstance(value, str) or isinstance(value, int):
+        print("path=", path)
+        print("key=", key)
+        lookup = "{}.{}".format(path, key)
 
-@app.route("/save/<identifier>", methods=["POST"])
-def save_document(identifier):
-	print("json storage server")
-	document = json.loads(request.data)
-	machine_index = hashes["hashes"].get_machine(identifier)
-	server = servers[machine_index]
-	lookup_key = "documents.objects"
-	response = requests.post("http://{}/get/{}".format(server, lookup_key))
-	print(response.text)
-	if not response.text:	
-		objects = {
-			"objects": [],
-			"object_key_lookup": {}
-		}
-	else:
-		objects = response.json()
-	object_count = len(objects["objects"])
-	decouple_object(objects, document)	
-	partition_key = "DDB"
-	sort_key = lookup_key	
+        lookup = objects["object_key_lookup"][lookup] 
+        index = lookup["index"]
+        new_parts = list(parts) + [str(index)]
+        if is_list:
+            new_named_parts = "{}".format(named_parts)
+        else:
+            new_named_parts = "{}.{}".format(named_parts, key)
+        yield {
+            "named_key": new_named_parts,
+            "key": ".".join(new_parts),
+            "value": value
+        }
+    if isinstance(value, dict):
+        print("path=", path)
+        print("key=", key)
+        lookup = "{}".format(path)
+        lookup = objects["object_key_lookup"][lookup]
+        index = lookup["index"]
+        new_parts = list(parts) + [str(index)]
+        if is_list:
+            new_named_parts = "{}".format(named_parts)
+        else:
+            new_named_parts = "{}.{}".format(named_parts, key)
+        yield from create_keys(value, objects, path="{}.{}".format(path, key), parts=new_parts, named_parts=new_named_parts)
+    
+    if isinstance(value, list):
+        print("path=", path)
+        print("key=", key)
+        for item_index, item in enumerate(value): 
+            lookup = objects["object_key_lookup"]["{}.{}".format(path, key)]
+            index = lookup["index"]
+            new_parts = list(parts) + [str(item_index)]
+            yield from handle_create_keys_value(item_index, item, objects, path="{}.{}".format(path, key), parts=new_parts, named_parts=".{}.{}[]".format(named_parts, key), is_list=True)
 
-	print(objects)	
-	response = requests.post("http://{}/set/{}/{}".format(server, partition_key, sort_key), data=json.dumps(objects))
+def create_keys(document, objects, path="", parts=[], named_parts=""):
+    for key, value in document.items(): 
+        yield from handle_create_keys_value(key, value, objects, path, parts, named_parts, is_list=False)
+                 
 
-	return json.dumps(objects)	
+     
+    
+@app.route("/documents/<collection>/<identifier>", methods=["GET"])
+def get_document(collection, identifier):
+    print("getting document")
+    machine_index = hashes["hashes"].get_machine(identifier)
+    server = servers[machine_index]
+    response = requests.get("http://{}/documents/{}/{}".format(server, collection, identifier))
+    print(response.text)
+
+    return response.text
+     
+
+@app.route("/save/<collection>/<identifier>", methods=["POST"])
+def save_document(collection, identifier):
+    print("json storage server")
+    document = json.loads(request.data)
+    machine_index = hashes["hashes"].get_machine(identifier)
+    server = servers[machine_index]
+    lookup_key = "documents.objects"
+    response = requests.post("http://{}/get/{}".format(server, lookup_key))
+    print(response.text)
+    if not response.text:   
+        objects = {
+            "objects": [],
+            "object_key_lookup": {}
+        }
+    else:
+        objects = response.json()
+    object_count = len(objects["objects"])
+    decouple_object(objects, document)  
+    partition_key = "DDB"
+    sort_key = lookup_key   
+
+    print(objects)  
+    response = requests.post("http://{}/set/{}/{}".format(server, partition_key, sort_key), data=json.dumps(objects))
+    created = list(create_keys(document, objects))
+    print("Keys for save")
+    pprint(created)
+    def items():
+        for value in created:
+            print("Saving document key to database")
+            partition_key = "D.{}.{}".format(collection, identifier)
+            sort_key = value["key"][1:]
+            parser = Parser()
+            parser.insert_table = collection
+            parser.insert_fields = [value["named_key"][1:].replace(".", "~")]
+            print(parser.insert_fields)
+            parser.insert_values = [value["value"]]
+            # response = requests.post("http://{}/set/{}/{}".format(server, partition_key, sort_key), data=str(value["value"]))
+
+            
+            yield from SQLExecutor(parser).execute()
+     
+    response = requests.post("http://{}/save/{}/{}".format(server, collection, identifier), data=json.dumps(created))
+    return Response(json.dumps(list(items())))
 
 class Parser():
     def __init__(self):
@@ -306,9 +390,9 @@ class Parser():
             
             return identifier
         
-        if re.match("[a-zA-Z0-9\.\_]+", self.last_char):
+        if re.match("[a-zA-Z0-9\.\_\[\]\/\~]+", self.last_char):
             identifier = ""
-            while self.end == False and re.match("[a-zA-Z0-9\.\_]+", self.last_char):
+            while self.end == False and re.match("[a-zA-Z0-9\.\_\[\]\/\~]+", self.last_char):
                 
                 identifier = identifier + self.last_char
                 self.last_char = self.getchar()
@@ -586,6 +670,7 @@ class SQLExecutor:
          
     
     def execute(self):
+        print("Executing SQL statement")
         if self.parser.create_join_clause: 
             print("Creating a join")
             print(self.parser.create_join_clause)
@@ -692,13 +777,16 @@ class SQLExecutor:
                 #        sort_key = item["key"]
                 #        lookup_key = partition_key + ":" + sort_key
                 #        response = requests.post("http://{}/set/{}/{}".format(server, partition_key, sort_key), data=str(item["value"]))
-
+                pprint(items)
                 for item in items:
                     partition_key = "{}.{}".format(insert_table, new_insert_count)
                     sort_key = item["key"]
                     lookup_key = partition_key + ":" + sort_key
                     machine_index = hashes["hashes"].get_machine(partition_key)
-                    response = requests.post("http://{}/set/{}/{}".format(servers[machine_index], partition_key, sort_key), data=str(item["value"]))
+                    url = "http://{}/set/{}/{}".format(servers[machine_index], partition_key, sort_key)
+                    print(url)
+                    print(str(item["value"]))
+                    response = requests.post(url, data=str(item["value"]))
 
                     if lookup_key not in indexed:
 

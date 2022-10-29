@@ -306,11 +306,40 @@ print(url)
 print(response.text)
 
 print("json storage")
-url = "http://{}/save/1".format(args.server)
+url = "http://{}/save/people/1".format(args.server)
 response = requests.post(url, data=json.dumps({
     "name": "Sam Squire", 
 	"age": 32,
 	"hobbies": [{"name": "God"}, {"name": "databases"}, {"name": "computers"}]
     }))
+print(response.text)
+
+print("json retrieve")
+url = "http://{}/documents/people/1".format(args.server)
+response = requests.get(url)
+print(response.text)
+
+
+
+print("query documents by sql")
+statement = """
+select * from people where people.~hobbies[]~name = 'God'"""
+url = "http://{}/sql".format(args.server)
+print(statement)
+response = requests.post(url, data=json.dumps({
+    "sql": statement 
+    }))
+print(url)
+print(response.text)
+
+print("query multiple hobbies documents by sql")
+statement = """
+select people.~hobbies[]~name from people"""
+url = "http://{}/sql".format(args.server)
+print(statement)
+response = requests.post(url, data=json.dumps({
+    "sql": statement 
+    }))
+print(url)
 print(response.text)
 
